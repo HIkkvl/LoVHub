@@ -1,0 +1,135 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Меню приложений</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+        }
+        .content {
+            padding: 20px;
+            flex: 1;
+        }
+        .app-list {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .app-item {
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            width: 200px;
+        }
+        .btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .btn-danger { background-color: red; }
+        .btn-warning { background-color: orange; }
+        .log-item { margin: 10px; }
+        .sidebar {
+            width: 350px;
+            background-color: #f4f4f4;
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100vh;
+            padding: 20px;
+            border-left: 1px solid #ccc;
+        }
+        .sidebar h2 { margin-top: 0; }
+        .log-list {
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .tab-buttons {
+            margin-bottom: 20px;
+        }
+        .tab-buttons button {
+            padding: 10px 15px;
+            margin-right: 10px;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+    <script>
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+        }
+        window.onload = function() {
+            switchTab('apps');
+        }
+    </script>
+</head>
+<body>
+    <div class="content">
+        <h1>Меню приложений</h1>
+
+        <div class="tab-buttons">
+            <button onclick="switchTab('apps')">Приложения</button>
+            <button onclick="switchTab('games')">Игры</button>
+        </div>
+
+        <div id="apps-tab" class="tab-content">
+            <h2>Приложения</h2>
+            <div class="app-list">
+                {% for app in software %}
+                    <div class="app-item">
+                        <h3>{{ app.name }}</h3>
+                        <p>Путь: {{ app.path }}</p>
+                        <a href="{{ url_for('run_app', app_name=app.name) }}" class="btn">Запустить</a>
+                        <a href="{{ url_for('edit_app', app_id=app.id) }}" class="btn btn-warning">Редактировать</a>
+                        <a href="{{ url_for('delete_app', app_name=app.name) }}" class="btn btn-danger">Удалить</a>
+                    </div>
+                {% endfor %}
+            </div>
+            <a href="{{ url_for('add_app') }}" class="btn">Добавить приложение</a>
+        </div>
+
+        <div id="games-tab" class="tab-content">
+            <h2>Игры</h2>
+            <div class="app-list">
+                {% for game in games %}
+                    <div class="app-item">
+                        <h3>{{ game.name }}</h3>
+                        <p>Путь: {{ game.path }}</p>
+                        <a href="{{ url_for('run_app', app_name=game.name) }}" class="btn">Запустить</a>
+                        <a href="{{ url_for('edit_app', app_id=game.id) }}" class="btn btn-warning">Редактировать</a>
+                        <a href="{{ url_for('delete_app', app_name=game.name) }}" class="btn btn-danger">Удалить</a>
+                    </div>
+                {% endfor %}
+            </div>
+            <a href="{{ url_for('add_app') }}" class="btn">Добавить игру</a>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <h2>Логи запусков</h2>
+        <div class="log-list">
+            {% for log in logs %}
+                <div class="log-item">
+                    📅 {{ log.timestamp }} — 💻 {{ log.computer_name }} (IP: {{ log.ip_address }})<br>
+                    👤 Логин: {{ log.user }} запустил приложение: <strong>{{ log.app_name }}</strong>
+                </div>
+            {% else %}
+                <div>Нет записей</div>
+            {% endfor %}
+            <a href="{{ url_for('clear_logs') }}" class="btn">Очистить логи</a>
+        </div>
+    </div>
+</body>
+</html>
