@@ -3,7 +3,6 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Меню приложений</title>
     <style>
         body {
@@ -70,9 +69,45 @@
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.getElementById(tabName + '-tab').classList.add('active');
         }
-        window.onload = function() {
-            switchTab('apps');
+
+        async function fetchApps() {
+            const res = await fetch('/api/apps');
+            const apps = await res.json();
+
+            const appsContainer = document.getElementById('apps-list');
+            const gamesContainer = document.getElementById('games-list');
+            appsContainer.innerHTML = '';
+            gamesContainer.innerHTML = '';
+
+            apps.forEach(app => {
+                const item = document.createElement('div');
+                item.className = 'app-item';
+                item.innerHTML = `
+                    <h3>${app.name}</h3>
+                    <p>Путь: ${app.path}</p>
+                    <a href="/run/${app.name}" class="btn">Запустить</a>
+                    <a href="/edit/${app.id}" class="btn btn-warning">Редактировать</a>
+                    <button class="btn btn-danger" onclick="deleteApp('${app.name}')">Удалить</button>
+                `;
+                if (app.type === 'game') {
+                    gamesContainer.appendChild(item);
+                } else {
+                    appsContainer.appendChild(item);
+                }
+            });
         }
+
+        async function deleteApp(name) {
+            if (!confirm(`Удалить приложение ${name}?`)) return;
+
+            await fetch(`/delete/${name}`);
+            await fetchApps();
+        }
+
+        window.onload = () => {
+            switchTab('apps');
+            fetchApps();
+        };
     </script>
 </head>
 <body>
@@ -86,33 +121,13 @@
 
         <div id="apps-tab" class="tab-content">
             <h2>Приложения</h2>
-            <div class="app-list">
-                {% for app in software %}
-                    <div class="app-item">
-                        <h3>{{ app.name }}</h3>
-                        <p>Путь: {{ app.path }}</p>
-                        <a href="{{ url_for('run_app', app_name=app.name) }}" class="btn">Запустить</a>
-                        <a href="{{ url_for('edit_app', app_id=app.id) }}" class="btn btn-warning">Редактировать</a>
-                        <a href="{{ url_for('delete_app', app_name=app.name) }}" class="btn btn-danger">Удалить</a>
-                    </div>
-                {% endfor %}
-            </div>
+            <div class="app-list" id="apps-list"></div>
             <a href="{{ url_for('add_app') }}" class="btn">Добавить приложение</a>
         </div>
 
         <div id="games-tab" class="tab-content">
             <h2>Игры</h2>
-            <div class="app-list">
-                {% for game in games %}
-                    <div class="app-item">
-                        <h3>{{ game.name }}</h3>
-                        <p>Путь: {{ game.path }}</p>
-                        <a href="{{ url_for('run_app', app_name=game.name) }}" class="btn">Запустить</a>
-                        <a href="{{ url_for('edit_app', app_id=game.id) }}" class="btn btn-warning">Редактировать</a>
-                        <a href="{{ url_for('delete_app', app_name=game.name) }}" class="btn btn-danger">Удалить</a>
-                    </div>
-                {% endfor %}
-            </div>
+            <div class="app-list" id="games-list"></div>
             <a href="{{ url_for('add_app') }}" class="btn">Добавить игру</a>
         </div>
     </div>
