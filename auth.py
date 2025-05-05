@@ -1,5 +1,6 @@
 import sys
 import sqlite3
+import subprocess
 from PyQt5.QtWidgets import QGraphicsBlurEffect
 from PyQt5.QtWidgets import QGraphicsColorizeEffect
 from PyQt5.QtCore import QPropertyAnimation
@@ -17,7 +18,7 @@ from PyQt5.QtWidgets import (
     QPushButton, QLineEdit, QMessageBox, QFrame
 )
 from PyQt5.QtCore import Qt
-import subprocess
+from utils.win_tools import hide_taskbar, kill_explorer, force_fullscreen_work_area, disable_task_manager, enable_task_manager
 
 def create_users_table():
     conn = sqlite3.connect("users.db")
@@ -60,6 +61,10 @@ class LoginWindow(QWidget):
         self.setStyleSheet("background:#212121; color: white; font-size: 18px; border: none;")
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.showFullScreen()
+        hide_taskbar()
+        kill_explorer()
+        force_fullscreen_work_area()
+        disable_task_manager()
 
         # Topbar
         topbar = QWidget()
