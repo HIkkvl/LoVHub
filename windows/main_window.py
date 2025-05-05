@@ -1,6 +1,6 @@
 from PyQt5.QtWidgets import QSizePolicy
 from PyQt5.QtWidgets import QWidget, QVBoxLayout, QStackedWidget, QScrollArea, QLabel, QPushButton, QGridLayout, QMessageBox, QInputDialog, QLineEdit, QShortcut
-from PyQt5.QtGui import QKeySequence, QIcon
+from PyQt5.QtGui import QKeySequence, QIcon, QPixmap, QPainter, QPainterPath
 from PyQt5.QtCore import Qt, QTimer, QSize
 from theme.theme import load_stylesheet
 from core.app_launcher import AppLauncherThread
@@ -12,7 +12,23 @@ import win32gui
 import win32con
 import keyboard
 import psutil
+import os
 
+
+def rounded_pixmap(pixmap, radius=12):
+    size = pixmap.size()
+    rounded = QPixmap(size)
+    rounded.fill(Qt.transparent)
+
+    painter = QPainter(rounded)
+    painter.setRenderHint(QPainter.Antialiasing)
+    path = QPainterPath()
+    path.addRoundedRect(0, 0, size.width(), size.height(), radius, radius)
+    painter.setClipPath(path)
+    painter.drawPixmap(0, 0, pixmap)
+    painter.end()
+
+    return rounded
 
 
 class MainWindow(QWidget):
@@ -25,12 +41,12 @@ class MainWindow(QWidget):
         self.known_hwnds = []
 
         hide_taskbar()
-        kill_explorer()
         force_fullscreen_work_area()
         disable_task_manager()
 
         self.setWindowTitle("Лаунчер")
         self.setStyleSheet("QPushButton { font-size: 16px; }")
+
 
         self.games, self.tools = load_apps_from_db()
         self.running_procs = []
@@ -73,6 +89,10 @@ class MainWindow(QWidget):
         keyboard.add_hotkey('alt+shift', self.topbar.switch_language)
         QTimer.singleShot(2000, self.taskbar_worker.start)
 
+        self.reload_timer = QTimer()
+        self.reload_timer.timeout.connect(self.reload_apps_from_db)
+        self.reload_timer.start(10000)  # обновление приложений
+
     def create_page(self, items, title):
         page_widget = QWidget()
         page_layout = QVBoxLayout(page_widget)
@@ -80,7 +100,7 @@ class MainWindow(QWidget):
 
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
-        scroll_area.setStyleSheet("""
+        scroll_area.setStyleSheet(""" 
             QScrollArea { border: none; }
             QScrollBar:vertical, QScrollBar:horizontal { width: 0px; height: 0px; background: transparent; }
             QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: transparent; }
@@ -103,25 +123,45 @@ class MainWindow(QWidget):
         scroll_layout.addLayout(apps_layout)
 
         row, col, max_columns = 0, 0, 4
-        for name, path in items:
-            btn = AnimatedButton(name)
-            btn.setStyleSheet("""
-                QPushButton {
-                background: qlineargradient(
+        for app in items:
+            btn = AnimatedButton()
+            btn.setFixedSize(334, 447) 
+          #  btn.setText(app["name"])   
+
+            icon_filename = app.get('icon', None)
+            icon_exists = icon_filename and os.path.exists(f"static/icons/{icon_filename}")
+
+            if icon_exists:
+                icon_path = f"static/icons/{icon_filename}"
+            else:
+                icon_path = "static/icons/default_icon.png"
+
+            if os.path.exists(icon_path):
+                pixmap = QPixmap(icon_path).scaled(334, 447, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                rounded = rounded_pixmap(pixmap, 12)
+                btn.setIcon(QIcon(rounded))
+                btn.setIconSize(QSize(334, 447))
+
+
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    color: {'transparent' if icon_exists else 'white'};
+                    border: none;
+                    border-radius: 12px;
+                    font-size: 20px;
+                    text-align: center;
+                    background: qlineargradient(
                         x1: 0, y1: 0,
                         x2: 0, y2: 1,
                         stop:0 #EAA21B, stop:1 #212121);
-                color: white;
-                border: none;
-                border-radius: 12px;
-                font-size: 20px;
-            }
-                QPushButton:hover {
-                background-color: #EAA21B;
-    }
-    """)
-            btn.setFixedSize(334, 625)
-            btn.clicked.connect(lambda _, n=name, p=path: self.run_app(n, p))
+                }}
+                QPushButton:hover {{
+                    background-color: #EAA21B;
+                }}
+            """)
+
+
+            btn.clicked.connect(lambda _, n=app["name"], p=app["path"]: self.run_app(n, p))
             apps_layout.addWidget(btn, row, col)
             col += 1
             if col >= max_columns:
@@ -262,6 +302,21 @@ class MainWindow(QWidget):
     def toggle_theme(self):
         self.current_theme = "light" if self.current_theme == "dark" else "dark"
         self.app.setStyleSheet(load_stylesheet(self.current_theme))
+
+    def reload_apps_from_db(self):
+        self.games, self.tools = load_apps_from_db()
+        self.filtered_games = self.games.copy()
+        self.filtered_apps = self.tools.copy()
+
+        while self.stack.count() > 0:
+            widget = self.stack.widget(0)
+            self.stack.removeWidget(widget)
+            widget.deleteLater()
+            
+        self.stack.addWidget(self.create_page(self.games, "Games"))
+        self.stack.addWidget(self.create_page(self.tools, "Applications"))
+        self.stack.setCurrentIndex(0)
+
 
     def update_custom_tray_apps(self):
         known_tray_apps = {
