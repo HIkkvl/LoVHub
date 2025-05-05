@@ -3,6 +3,7 @@ from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import QSize, QRect, QPropertyAnimation, QEasingCurve
 import sqlite3
 import os
+import uuid
 
 class AnimatedButton(QPushButton):
     def __init__(self, *args, **kwargs):
@@ -57,15 +58,29 @@ def create_animated_button(icon_path, size, on_click=None, parent=None):
     return btn
 
 
+def save_icon(file):
+    upload_folder = 'static/icons/'
+    
+    if not os.path.exists(upload_folder):
+        os.makedirs(upload_folder)
+
+    filename = f"{uuid.uuid4()}.jpg"
+    file.save(os.path.join(upload_folder, filename))
+    return filename
+
+
 def load_apps_from_db():
     db_path = "apps.db"
     if not os.path.exists(db_path):
         return [], []
+    
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT name, path, type FROM apps")
+    cursor.execute("SELECT id, name, path, type, icon FROM apps")  
     rows = cursor.fetchall()
     conn.close()
-    games = [(name, path) for name, path, type_ in rows if type_ == "game"]
-    apps = [(name, path) for name, path, type_ in rows if type_ == "app"]
+    
+    games = [{"id": row[0], "name": row[1], "path": row[2], "type": row[3], "icon": row[4]} for row in rows if row[3] == "game"]
+    apps = [{"id": row[0], "name": row[1], "path": row[2], "type": row[3], "icon": row[4]} for row in rows if row[3] == "app"]
+    
     return games, apps
