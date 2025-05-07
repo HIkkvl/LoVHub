@@ -172,5 +172,60 @@ def clear_logs():
     conn.close()
     return redirect(url_for('index'))
 
+@app.route('/api/add_time', methods=['POST'])
+def add_time():
+    data = request.json
+    username = data.get("username")
+    seconds = data.get("seconds")
+
+    if not username or not isinstance(seconds, int):
+        return jsonify({"success": False, "error": "Invalid input"}), 400
+
+    try:
+        conn = sqlite3.connect("users.db")
+        cursor = conn.cursor()
+
+        # Получаем текущее время, с проверкой на None
+        cursor.execute("SELECT time_left FROM users WHERE username = ?", (username,))
+        result = cursor.fetchone()
+        current_time = result[0] if result and result[0] is not None else 0
+
+        # Добавляем время
+        new_time = current_time + seconds
+
+        # Обновляем в базе
+        cursor.execute("UPDATE users SET time_left = ? WHERE username = ?", (new_time, username))
+        conn.commit()
+        conn.close()
+
+        return jsonify({"success": True, "new_time": new_time})
+
+    except Exception as e:
+        print("Ошибка в add_time:", e)
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
+@app.route('/api/add_balance', methods=['POST'])
+def add_balance():
+    data = request.json
+    username = data.get('username')
+    amount = int(data.get('amount', 0))
+
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("SELECT balance FROM users WHERE username = ?", (username,))
+    result = c.fetchone()
+
+    if result:
+        new_balance = result[0] + amount
+        c.execute("UPDATE users SET balance = ? WHERE username = ?", (new_balance, username))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success", "new_balance": new_balance})
+    else:
+        conn.close()
+        return jsonify({"status": "error", "message": "User not found"}), 404
+
+
 if __name__ == '__main__':
     app.run(debug=True)

@@ -13,7 +13,15 @@ import win32con
 import keyboard
 import psutil
 import os
+import sys
+import subprocess
 
+def restart_application(self):
+    """Перезапускает приложение"""
+    python = sys.executable
+    script_path = os.path.abspath("main.py")
+    subprocess.Popen([python, script_path, self.username])
+    self.app.quit()  # закрываем текущее приложение
 
 def rounded_pixmap(pixmap, radius=12):
     size = pixmap.size()
@@ -32,21 +40,24 @@ def rounded_pixmap(pixmap, radius=12):
 
 
 class MainWindow(QWidget):
-    def __init__(self, app):
+    def __init__(self, app, username):
         super().__init__()
         self.app = app
+        self.username = username  # Теперь сохраняем имя пользователя
+        if not self.username:  # Если username не передан, блокируем работу
+            QMessageBox.warning(self, "Ошибка", "Пользователь не авторизован!")
+            self.close()
+            return
         self.current_theme = "dark"
         self.app.setStyleSheet(load_stylesheet(self.current_theme))
 
         self.known_hwnds = []
-
         hide_taskbar()
         force_fullscreen_work_area()
         disable_task_manager()
 
         self.setWindowTitle("Лаунчер")
         self.setStyleSheet("QPushButton { font-size: 16px; }")
-
 
         self.games, self.tools = load_apps_from_db()
         self.running_procs = []
@@ -57,14 +68,16 @@ class MainWindow(QWidget):
         self.taskbar_worker = TaskbarWorker()
         self.taskbar_worker.update_icons.connect(self.update_taskbar_icons)
 
-        self.taskbar_timer = QTimer(self)
-        self.taskbar_timer.timeout.connect(self.taskbar_worker.start)
-        self.taskbar_timer.start(3000)
-
         self.tray_check_timer = QTimer()
         self.tray_check_timer.timeout.connect(self.update_custom_tray_apps)
         self.tray_check_timer.start(5000)
 
+        # Инициализируем таймер только после авторизации
+        self.taskbar_timer = QTimer(self)
+        self.taskbar_timer.timeout.connect(self.taskbar_worker.start)
+
+        # Таймер будет запускаться только после успешного логина
+        self._is_authenticated = False
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -73,9 +86,7 @@ class MainWindow(QWidget):
         from windows.topbar import TopBar
         self.topbar = TopBar(self)
 
-
         main_layout.addWidget(self.topbar)
-        
 
         self.stack = QStackedWidget()
         self.stack.addWidget(self.create_page(self.games, "Games"))
@@ -85,13 +96,36 @@ class MainWindow(QWidget):
 
         self.setLayout(main_layout)
         self.showFullScreen()
+
+        # Установим клавишу для выхода
         self.set_exit_hotkey()
+
+        # Убедимся, что таймер запускается только после успешного логина
+        QTimer.singleShot(2000, self.taskbar_worker.start)
+
+        # Пример использования авторизации
+        self.after_authentication()
+
         keyboard.add_hotkey('alt+shift', self.topbar.switch_language)
         QTimer.singleShot(2000, self.taskbar_worker.start)
 
         self.reload_timer = QTimer()
         self.reload_timer.timeout.connect(self.reload_apps_from_db)
         self.reload_timer.start(10000)  # обновление приложений
+
+    def after_authentication(self):
+        # Здесь делаем проверку, что таймер стартует только после авторизации
+        if self._is_authenticated:
+            self.taskbar_timer.start(3000)  # Запускаем таймер после логина
+
+    def accepted_login(self, username):
+        self.username = username
+        self._is_authenticated = True  # Отмечаем, что пользователь авторизован
+        with open("last_login.txt", "w") as f:
+            f.write(username)
+        self.close()  # Закрываем окно авторизации
+        subprocess.run(["python", "main.py"])  # Открываем main.py
+
 
     def create_page(self, items, title):
         page_widget = QWidget()

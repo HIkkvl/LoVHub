@@ -16,25 +16,33 @@ def load_stylesheet(theme="dark"):
                 background-color: #3a3a3a;
             }
 
-            /* ВАЖНО: ПЕРЕОПРЕДЕЛЯЕМ ПОСЛЕ ОБЩЕГО QWidget */
             QWidget#TopBar {
                 background-color: #121212;
+            }
+            QWidget#TaskBar {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #252525, stop:1 #121212);
             }
         """
     else:  # light
         return """
             QWidget {
-                background-color: #f0f0f0;
+                background-color: #BCBABA;
                 color: #333;
                 font-size: 18px;
             }
             QPushButton {
-                background-color: #ffffff;
+                background-color: #D9D9D9;
                 border: 1px solid #ccc;
                 border-radius: 10px;
                 padding: 10px;
             }
             QPushButton:hover {
                 background-color: #e0e0e0;
+            }
+            QWidget#TopBar {
+                background-color: #878686;
+            }
+            QWidget#TaskBar {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #BCBABA, stop:1 #878686);
             }
         """

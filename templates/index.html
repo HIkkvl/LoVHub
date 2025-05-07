@@ -61,6 +61,11 @@
             padding: 10px 15px;
             margin-right: 10px;
         }
+        .time-balance
+        {
+            margin-top:300px;
+            margin-right: 600px;
+        }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
     </style>
@@ -130,6 +135,49 @@
             <div class="app-list" id="games-list"></div>
             <a href="{{ url_for('add_app') }}" class="btn">Добавить игру</a>
         </div>
+    </div>
+
+    <div class="time-balance">
+        <h3>Добавить время / баланс пользователю</h3>
+        <form id="credit-form">
+        <input type="text" name="username" placeholder="Имя пользователя" required>
+        <input type="number" name="seconds" placeholder="Время (секунды)">
+        <input type="number" name="amount" placeholder="Баланс (₽)">
+        <button type="submit">Добавить</button>
+        </form>
+
+        <p id="response-message" style="color: lightgreen;"></p>
+
+        <script>
+        document.getElementById('credit-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const form = e.target;
+        const username = form.username.value;
+        const seconds = parseInt(form.seconds.value || 0);
+        const amount = parseInt(form.amount.value || 0);
+
+        if (seconds > 0) {
+            await fetch('/api/add_time', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, seconds })
+            });
+        }
+
+        if (amount > 0) {
+            await fetch('/api/add_balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, amount })
+            });
+        }
+
+        document.getElementById('response-message').textContent = 'Успешно добавлено!';
+        form.reset();
+        });
+        </script>
+
     </div>
 
     <div class="sidebar">

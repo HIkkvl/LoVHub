@@ -15,7 +15,6 @@ class TopBar(QFrame):
         self.setObjectName("TopBar")
         self.main_window = main_window
         self.setFixedSize(1920, 106)
-        self.setStyleSheet("background-color: #121212;")
         self.tray_expanded = False  # флаг состояния кастомного трея
 
         self.setup_search()
@@ -77,7 +76,7 @@ class TopBar(QFrame):
             QPushButton {
                 color: white;
                 font-size: 18px;
-                background-color: #444;
+                background-color: none;
                 border: none;
             }
             QPushButton:hover {
@@ -202,9 +201,9 @@ class TopBar(QFrame):
 
     def setup_taskbar_panel(self):
         self.running_apps_widget = QWidget(self)
+        self.running_apps_widget.setObjectName("TaskBar")
         self.running_apps_widget.setFixedSize(400, 80)
         self.running_apps_widget.move(1091, 13)
-        self.running_apps_widget.setStyleSheet("background:#333; border-radius:6px;")
 
         self.running_apps_container = QHBoxLayout(self.running_apps_widget)
         self.running_apps_container.setAlignment(Qt.AlignLeft)

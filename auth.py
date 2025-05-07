@@ -195,8 +195,9 @@ class LoginWindow(QWidget):
     def accepted_login(self, username):
         with open("last_login.txt", "w") as f:
             f.write(username)
+
         self.close()
-        subprocess.run(["python", "main.py"])
+        subprocess.run(["python", "main.py", username])
 
  
 
