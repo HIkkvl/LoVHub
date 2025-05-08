@@ -16,12 +16,6 @@ import os
 import sys
 import subprocess
 
-def restart_application(self):
-    """Перезапускает приложение"""
-    python = sys.executable
-    script_path = os.path.abspath("main.py")
-    subprocess.Popen([python, script_path, self.username])
-    self.app.quit()  # закрываем текущее приложение
 
 def rounded_pixmap(pixmap, radius=12):
     size = pixmap.size()

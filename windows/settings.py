@@ -7,7 +7,6 @@ from PyQt5.QtGui import QIcon
 from utils.helpers import AnimatedButton
 from PyQt5.QtCore import QTimer
 from datetime import timedelta
-from windows.main_window import restart_application
 import os
 import sys
 import subprocess
@@ -181,7 +180,6 @@ class SettingsWindow(QWidget):
             self.time_label.setText("Время вышло")
             self.timer.stop()
             self.kill_disallowed_apps()
-            self.restart_application()
 
     def update_time_left_in_db(self, username, seconds):
         try:
