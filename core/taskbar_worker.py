@@ -8,7 +8,6 @@ from utils.win_tools import get_exe_path_from_pid  # будем определя
 from PyQt5.QtGui import QIcon
 
 
-
 class TaskbarWorker(QThread):
     update_icons = pyqtSignal(list)  # Список: [(hwnd, title, icon)]
 
@@ -38,7 +37,11 @@ class TaskbarWorker(QThread):
             if not exe_path or not os.path.exists(exe_path):
                 return
 
-            icon = extract_icon_from_exe(exe_path) or QIcon("images/default_icon.png")
+            icon = extract_icon_from_exe(exe_path)
+
+            if icon.isNull():
+                return
+
             result.append((hwnd, title, icon))
 
         win32gui.EnumWindows(handle, None)
