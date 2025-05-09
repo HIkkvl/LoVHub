@@ -94,9 +94,6 @@ class MainWindow(QWidget):
         # Установим клавишу для выхода
         self.set_exit_hotkey()
 
-        # Убедимся, что таймер запускается только после успешного логина
-        QTimer.singleShot(2000, self.taskbar_worker.start)
-
         # Пример использования авторизации
         self.after_authentication()
 

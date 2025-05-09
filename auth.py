@@ -122,6 +122,10 @@ class LoginWindow(QWidget):
         self.password_input.setPlaceholderText("Пароль")
         self.password_input.setStyleSheet("background-color: #121212; padding: 28px; border: 2px solid; border-color: black; font-size: 15px;")
 
+        self.password_input.returnPressed.connect(self.login)
+        self.username_input.returnPressed.connect(self.login)
+
+
         login_button = QPushButton("")
         login_button = AnimatedButton()
         login_button.setIcon(QIcon("images/join_icon.png"))
