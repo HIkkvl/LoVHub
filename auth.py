@@ -201,10 +201,16 @@ class LoginWindow(QWidget):
             f.write(username)
 
         self.close()
+        # Передаем username как аргумент при запуске main.py
         subprocess.run(["python", "main.py", username])
-
  
-
+    def closeEvent(self, event):
+        # При закрытии окна авторизации убиваем все связанные процессы
+        try:
+            subprocess.run(["taskkill", "/f", "/im", "main.py"], check=True)
+        except subprocess.CalledProcessError:
+            pass
+        event.accept()
 
     def reset_auth_frame_style(self):
         self.auth_frame.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #EAA21B, stop:1 #212121); border-radius: 0px; border:none;")

@@ -1,19 +1,21 @@
-from PyQt5.QtWidgets import QSizePolicy
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QStackedWidget, QScrollArea, QLabel, QPushButton, QGridLayout, QMessageBox, QInputDialog, QLineEdit, QShortcut
-from PyQt5.QtGui import QKeySequence, QIcon, QPixmap, QPainter, QPainterPath
+from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStackedWidget, QScrollArea, 
+                            QLabel, QGridLayout, QMessageBox, QInputDialog, 
+                            QLineEdit, QShortcut, QSizePolicy,QPushButton)
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPainterPath, QKeySequence
 from PyQt5.QtCore import Qt, QTimer, QSize
 from theme.theme import load_stylesheet
 from core.app_launcher import AppLauncherThread
 from core.taskbar_worker import TaskbarWorker
-from utils.win_tools import hide_taskbar, kill_explorer, force_fullscreen_work_area, disable_task_manager, enable_task_manager
-from utils.helpers import load_apps_from_db , AnimatedButton
+from utils.win_tools import (hide_taskbar, kill_explorer, 
+                            force_fullscreen_work_area, 
+                            disable_task_manager, enable_task_manager)
+from utils.helpers import load_apps_from_db, AnimatedButton
 from utils.network import send_app_launch_info
 import win32gui
 import win32con
 import keyboard
 import psutil
 import os
-import sys
 import subprocess
 
 
@@ -37,11 +39,8 @@ class MainWindow(QWidget):
     def __init__(self, app, username):
         super().__init__()
         self.app = app
-        self.username = username  # Теперь сохраняем имя пользователя
-        if not self.username:  # Если username не передан, блокируем работу
-            QMessageBox.warning(self, "Ошибка", "Пользователь не авторизован!")
-            self.close()
-            return
+        self.username = username
+        self._is_authenticated = True  # Флаг авторизации
         self.current_theme = "dark"
         self.app.setStyleSheet(load_stylesheet(self.current_theme))
 
@@ -59,27 +58,29 @@ class MainWindow(QWidget):
         self.filtered_apps = self.tools.copy()
         self.settings_open = False
 
-        self.taskbar_worker = TaskbarWorker()
-        self.taskbar_worker.update_icons.connect(self.update_taskbar_icons)
+        # Инициализация компонентов
+        self.init_ui()
+        self.init_timers()
+        self.init_settings_window()  # Создаем окно настроек сразу
 
-        self.tray_check_timer = QTimer()
-        self.tray_check_timer.timeout.connect(self.update_custom_tray_apps)
-        self.tray_check_timer.start(5000)
+        # Подключаем сигнал завершения времени
+        self.settings_window.time_expired.connect(self.handle_time_expired)
+        
+        # Горячие клавиши
+        self.set_exit_hotkey()
+        keyboard.add_hotkey('alt+shift', self.topbar.switch_language)
 
-        # Инициализируем таймер только после авторизации
-        self.taskbar_timer = QTimer(self)
-        self.taskbar_timer.timeout.connect(self.taskbar_worker.start)
+        # Запуск таймеров
+        QTimer.singleShot(2000, self.taskbar_worker.start)
 
-        # Таймер будет запускаться только после успешного логина
-        self._is_authenticated = False
-
+    def init_ui(self):
+        """Инициализация пользовательского интерфейса"""
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
 
         from windows.topbar import TopBar
         self.topbar = TopBar(self)
-
         main_layout.addWidget(self.topbar)
 
         self.stack = QStackedWidget()
@@ -91,34 +92,61 @@ class MainWindow(QWidget):
         self.setLayout(main_layout)
         self.showFullScreen()
 
-        # Установим клавишу для выхода
-        self.set_exit_hotkey()
+    def init_timers(self):
+        """Инициализация таймеров"""
+        self.taskbar_worker = TaskbarWorker()
+        self.taskbar_worker.update_icons.connect(self.update_taskbar_icons)
 
-        # Пример использования авторизации
-        self.after_authentication()
+        self.tray_check_timer = QTimer()
+        self.tray_check_timer.timeout.connect(self.update_custom_tray_apps)
+        self.tray_check_timer.start(5000)
 
-        keyboard.add_hotkey('alt+shift', self.topbar.switch_language)
-        QTimer.singleShot(2000, self.taskbar_worker.start)
+        self.taskbar_timer = QTimer(self)
+        self.taskbar_timer.timeout.connect(self.taskbar_worker.start)
+        self.taskbar_timer.start(3000)
 
         self.reload_timer = QTimer()
         self.reload_timer.timeout.connect(self.reload_apps_from_db)
-        self.reload_timer.start(10000)  # обновление приложений
+        self.reload_timer.start(10000)
 
-    def after_authentication(self):
-        # Здесь делаем проверку, что таймер стартует только после авторизации
-        if self._is_authenticated:
-            self.taskbar_timer.start(3000)  # Запускаем таймер после логина
+    def init_settings_window(self):
+        """Инициализация окна настроек"""
+        from windows.settings import SettingsWindow
+        self.settings_window = SettingsWindow(self)
+        # Таймеры уже запущены в конструкторе SettingsWindow
 
-    def accepted_login(self, username):
-        self.username = username
-        self._is_authenticated = True  # Отмечаем, что пользователь авторизован
-        with open("last_login.txt", "w") as f:
-            f.write(username)
-        self.close()  # Закрываем окно авторизации
-        subprocess.run(["python", "main.py"])  # Открываем main.py
+    def handle_time_expired(self):
+        """Обработчик завершения времени"""
+        # Восстанавливаем системные элементы
+        enable_task_manager()
+        from utils.win_tools import show_taskbar, start_explorer
+        show_taskbar()
+        start_explorer()
+        
+        # Закрываем текущее окно
+        self.close()
+        
+        # Запускаем окно авторизации
+        subprocess.Popen(["python", "auth.py"])
+        
+        # Завершаем текущее приложение
+        self.app.quit()
 
+        
+    def open_settings_window(self):
+        """Управление отображением окна настроек"""
+        if self.settings_open:
+            self.settings_window.close_with_animation()
+            self.settings_open = False
+        else:
+            button_pos = self.topbar.settings_btn.mapToGlobal(
+                self.topbar.settings_btn.rect().bottomRight())
+            target_pos = button_pos - self.settings_window.rect().topRight()
+            self.settings_window.show_with_animation(target_pos)
+            self.settings_open = True
 
     def create_page(self, items, title):
+        """Создает страницу с приложениями"""
         page_widget = QWidget()
         page_layout = QVBoxLayout(page_widget)
         page_layout.setAlignment(Qt.AlignTop)
@@ -150,23 +178,18 @@ class MainWindow(QWidget):
         row, col, max_columns = 0, 0, 4
         for app in items:
             btn = AnimatedButton()
-            btn.setFixedSize(334, 447) 
-          #  btn.setText(app["name"])   
-
+            btn.setFixedSize(334, 447)
+            
             icon_filename = app.get('icon', None)
             icon_exists = icon_filename and os.path.exists(f"static/icons/{icon_filename}")
 
-            if icon_exists:
-                icon_path = f"static/icons/{icon_filename}"
-            else:
-                icon_path = "static/icons/default_icon.png"
+            icon_path = f"static/icons/{icon_filename}" if icon_exists else "static/icons/default_icon.png"
 
             if os.path.exists(icon_path):
                 pixmap = QPixmap(icon_path).scaled(334, 447, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
                 rounded = rounded_pixmap(pixmap, 12)
                 btn.setIcon(QIcon(rounded))
                 btn.setIconSize(QSize(334, 447))
-
 
             btn.setStyleSheet(f"""
                 QPushButton {{
@@ -185,7 +208,6 @@ class MainWindow(QWidget):
                 }}
             """)
 
-
             btn.clicked.connect(lambda _, n=app["name"], p=app["path"]: self.run_app(n, p))
             apps_layout.addWidget(btn, row, col)
             col += 1
@@ -197,6 +219,7 @@ class MainWindow(QWidget):
         page_layout.addWidget(scroll_area)
         return page_widget
 
+    # Остальные методы класса остаются без изменений
     def update_taskbar_icons(self, hwnd_title_icon_list):
         hwnd_to_data = {hwnd: (title, icon) for hwnd, title, icon in hwnd_title_icon_list}
         current_hwnds = list(hwnd_to_data.keys())
@@ -284,30 +307,14 @@ class MainWindow(QWidget):
         else:
             QMessageBox.warning(self, "Ошибка", "Неверный пароль!")
 
-    def open_settings_window(self):
-        if not hasattr(self, 'settings_window'):
-            from windows.settings import SettingsWindow
-            self.settings_window = SettingsWindow(self)
-
-        if self.settings_open:
-            self.settings_window.close_with_animation()
-        else:
-            button_pos = self.topbar.settings_btn.mapToGlobal(self.topbar.settings_btn.rect().bottomRight())
-            target_pos = button_pos - self.settings_window.rect().topRight()
-            self.settings_window.show_with_animation(target_pos)
-            self.settings_open = True
-
     def switch_tab(self, index):
         if self.stack.currentIndex() != index:
             self.stack.setCurrentIndex(index)
-
-    
 
     def update_search_results(self):
         search_text = self.topbar.search_input.text().lower()
 
         if not search_text:
-            # Удалить search-страницу, если она есть
             if self.stack.count() == 3:
                 self.stack.removeWidget(self.stack.widget(2))
             self.stack.setCurrentIndex(self.stack.currentIndex())
@@ -341,7 +348,6 @@ class MainWindow(QWidget):
         self.stack.addWidget(self.create_page(self.games, "Games"))
         self.stack.addWidget(self.create_page(self.tools, "Applications"))
         self.stack.setCurrentIndex(0)
-
 
     def update_custom_tray_apps(self):
         known_tray_apps = {
