@@ -321,7 +321,7 @@ class MainWindow(QWidget):
             return
 
         combined = self.games + self.tools
-        filtered = [item for item in combined if search_text in item[0].lower()]
+        filtered = [item for item in combined if search_text in item['name'].lower()]
 
         search_page = self.create_page(filtered, "Результаты поиска")
 
