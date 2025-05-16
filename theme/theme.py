@@ -28,6 +28,10 @@ def load_stylesheet(theme="dark"):
                 font-size: 16px;
                 border: none;
             }
+            QWidget#Settings
+            {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #212121, stop:1 #171717);
+            }
         """
     else:  # light
         return """
@@ -56,5 +60,9 @@ def load_stylesheet(theme="dark"):
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #BCBABA, stop:1 #878686);
                 font-size: 16px;
                 border: none;
+            }
+            QWidget#Setting
+            {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #BCBABA, stop:1 #A1A1A1);
             }
         """

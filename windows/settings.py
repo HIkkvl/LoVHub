@@ -16,8 +16,10 @@ class SettingsWindow(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Popup)
+        self.setObjectName("Settings")
         self.setFixedSize(450, 850)
-        self.setStyleSheet("background-color: #212121; color: white; border-radius: 10px;")
+        self.setContentsMargins(14,0,0,0)
+      #  self.setStyleSheet("background-color: #212121; color: white; border-radius: 10px;")
 
         layout = QVBoxLayout()
 
