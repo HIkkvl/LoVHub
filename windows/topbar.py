@@ -28,6 +28,7 @@ class TopBar(QFrame):
     def setup_search(self):
         self.search_input = QLineEdit(self)
         self.search_input.setPlaceholderText("Поиск...")
+        self.search_input.setObjectName("Search")
         self.search_input.setFixedSize(480, 60)
         self.search_input.move(20, 23)
         self.search_input.textChanged.connect(self.main_window.update_search_results)
@@ -41,14 +42,6 @@ class TopBar(QFrame):
         search_icon.move(10, 10)
         self.search_input.setTextMargins(50, 0, 0, 0)
 
-        self.search_input.setStyleSheet("""
-            QLineEdit {
-                color: white;
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #252525, stop:1 #121212);
-                font-size: 16px;
-                border: none;
-            }
-        """)
 
     def setup_buttons(self):
         # Кнопка "Games"

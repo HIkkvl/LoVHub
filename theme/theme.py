@@ -22,6 +22,12 @@ def load_stylesheet(theme="dark"):
             QWidget#TaskBar {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #252525, stop:1 #121212);
             }
+            QLineEdit#Search {
+                color: white;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #252525, stop:1 #121212);
+                font-size: 16px;
+                border: none;
+            }
         """
     else:  # light
         return """
@@ -44,5 +50,11 @@ def load_stylesheet(theme="dark"):
             }
             QWidget#TaskBar {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #BCBABA, stop:1 #878686);
+            }
+            QLineEdit#Search {
+                color: white;
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #BCBABA, stop:1 #878686);
+                font-size: 16px;
+                border: none;
             }
         """
