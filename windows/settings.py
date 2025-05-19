@@ -1,7 +1,10 @@
 import sqlite3
 import psutil
 import getpass
-from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMessageBox
+from PyQt5.QtWidgets import QDialog, QLineEdit
+from PyQt5.QtWidgets import QApplication
+from PyQt5.QtGui import QIntValidator
+from PyQt5.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QMessageBox, QPushButton
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, QEvent, QSize, QTimer
 from PyQt5.QtGui import QIcon
 from PyQt5.QtCore import pyqtSignal 
@@ -26,14 +29,14 @@ class SettingsWindow(QWidget):
         # Секция приветствия
         hi_layout = QHBoxLayout()
         hi_label = QLabel("Hi!")
-        hi_label.setStyleSheet("font-size: 44px; margin-left:114px; margin-top: 20px;")
+        hi_label.setStyleSheet("font-size: 44px; margin-left:114px; margin-top: 20px; background:none;")
 
         username = self.get_logged_in_username()
         self.username = username
         self.time_left_seconds = self.get_time_left_from_db(username)
         
         username_label = QLabel(username if username else "Guest")
-        username_label.setStyleSheet("font-size: 44px; margin-left: 4px; margin-top: 20px;")
+        username_label.setStyleSheet("font-size: 44px; margin-left: 4px; margin-top: 20px; background:none;")
 
         hi_layout.addWidget(hi_label)
         hi_layout.addWidget(username_label)
@@ -80,22 +83,153 @@ class SettingsWindow(QWidget):
         layout.addWidget(time_left_box, alignment=Qt.AlignHCenter)
         layout.addSpacing(20)
 
-        # Секция баланса
+
+        # Секция пакетов времени
+        packages_layout = QVBoxLayout()
+        packages_layout.setSpacing(10)
+        
+        # Первый ряд кнопок (3 кнопки)
+        row1_layout = QHBoxLayout()
+        row1_layout.setSpacing(10)
+        
+        # Пакет 1: 30 минут за 350тг
+        pkg1_btn = AnimatedButton("30 мин\n150 тг")
+        pkg1_btn.setFixedSize(120, 80)
+        pkg1_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #333;
+                color: white;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #444;
+            }
+        """)
+        pkg1_btn.clicked.connect(lambda: self.buy_time_package(1800, 150))
+        row1_layout.addWidget(pkg1_btn)
+        
+        # Пакет 2: 1 час за 350тг
+        pkg2_btn = AnimatedButton("1 час\n350тг")
+        pkg2_btn.setFixedSize(120, 80)
+        pkg2_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #333;
+                color: white;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #444;
+            }
+        """)
+        pkg2_btn.clicked.connect(lambda: self.buy_time_package(3600, 350))
+        row1_layout.addWidget(pkg2_btn)
+        
+        # Пакет 3: 2 часа за 700 тг
+        pkg3_btn = AnimatedButton("2 часа\n700 тг")
+        pkg3_btn.setFixedSize(120, 80)
+        pkg3_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #333;
+                color: white;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #444;
+            }
+        """)
+        pkg3_btn.clicked.connect(lambda: self.buy_time_package(7200, 150))
+        row1_layout.addWidget(pkg3_btn)
+        
+        packages_layout.addLayout(row1_layout)
+        
+        # Второй ряд кнопок (3 кнопки)
+        row2_layout = QHBoxLayout()
+        row2_layout.setSpacing(10)
+        
+        # Пакет 4: 3 часа за 1000 руб
+        pkg4_btn = AnimatedButton("3 часа\n1000 тг")
+        pkg4_btn.setFixedSize(120, 80)
+        pkg4_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #333;
+                color: white;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #444;
+            }
+        """)
+        pkg4_btn.clicked.connect(lambda: self.buy_time_package(10800, 200))
+        row2_layout.addWidget(pkg4_btn)
+        
+        # Пакет 5: 5 часов за 2000 тг
+        pkg5_btn = AnimatedButton("5 часов\n2000 тг")
+        pkg5_btn.setFixedSize(120, 80)
+        pkg5_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #333;
+                color: white;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #444;
+            }
+        """)
+        pkg5_btn.clicked.connect(lambda: self.buy_time_package(18000, 2000))
+        row2_layout.addWidget(pkg5_btn)
+        
+        # Пакет 6: 10 часов за 3500 тг
+        pkg6_btn = AnimatedButton("10 часов\n3500 тг")
+        pkg6_btn.setFixedSize(120, 80)
+        pkg6_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #333;
+                color: white;
+                border-radius: 5px;
+                font-size: 16px;
+            }
+            QPushButton:hover {
+                background-color: #444;
+            }
+        """)
+        pkg6_btn.clicked.connect(lambda: self.buy_time_package(36000, 3500))
+        row2_layout.addWidget(pkg6_btn)
+        
+        packages_layout.addLayout(row2_layout)
+        layout.addLayout(packages_layout)
+        layout.addSpacing(20)
+
+         # Секция баланса
         self.balance = self.get_balance_from_db(username)
         balance_box = QWidget()
-        balance_box.setFixedSize(411, 45)
+        balance_box.setFixedSize(206, 50)
         balance_box.setStyleSheet("""
-            background-color: #333;
+            background-color: #121212;
             border: none;
             border-radius: 0px;
         """)
+        balance_box.mousePressEvent = self.show_topup_dialog  # Добавляем обработчик клика
 
-        self.balance_label = QLabel(f"{self.balance} ₽")
-        self.balance_label.setAlignment(Qt.AlignCenter)
-        self.balance_label.setStyleSheet("font-size: 30px; color: #00FF00;")
-
-        balance_layout = QVBoxLayout()
+        # Создаем горизонтальный layout для иконки и текста
+        balance_layout = QHBoxLayout()
+        balance_layout.setContentsMargins(8, 0, 30, 0)
+        balance_layout.setSpacing(0)
+        
+        # Добавляем иконку
+        icon_label = QLabel()
+        icon_label.setPixmap(QIcon("images/Balance_card.png").pixmap(48, 48))
+        balance_layout.addWidget(icon_label)
+        
+        # Добавляем текст баланса
+        self.balance_label = QLabel(f"{self.balance} тг")
+        self.balance_label.setStyleSheet("font-size: 32px; color: #FFFFFF;")
         balance_layout.addWidget(self.balance_label)
+        
         balance_box.setLayout(balance_layout)
         layout.addWidget(balance_box, alignment=Qt.AlignHCenter)
         layout.addSpacing(20)
@@ -124,6 +258,125 @@ class SettingsWindow(QWidget):
         # Автоматический запуск таймеров при наличии пользователя
         if username:
             self.start_timers()
+
+    def show_topup_dialog(self, event):
+        """Показывает диалоговое окно для пополнения баланса"""
+        if not self.username:
+            QMessageBox.warning(self, "Ошибка", "Необходимо войти в систему")
+            return
+            
+        # Создаем диалоговое окно
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Пополнение баланса")
+        dialog.setFixedSize(300, 150)
+        dialog.setStyleSheet("background-color: #212121; color: white;")
+        
+        layout = QVBoxLayout()
+        
+        # Поле для ввода суммы
+        amount_label = QLabel("Введите сумму пополнения (тг):")
+        self.amount_input = QLineEdit()
+        self.amount_input.setValidator(QIntValidator(1, 100000))  # Только целые числа от 1 до 100000
+        self.amount_input.setStyleSheet("""
+            QLineEdit {
+                background-color: #333;
+                color: white;
+                border: 1px solid #555;
+                padding: 5px;
+                font-size: 16px;
+            }
+        """)
+        
+        # Кнопки подтверждения/отмены
+        buttons_layout = QHBoxLayout()
+        ok_btn = QPushButton("Пополнить")
+        ok_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #4CAF50;
+                color: white;
+                border: none;
+                padding: 8px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #45a049;
+            }
+        """)
+        ok_btn.clicked.connect(lambda: self.topup_balance(dialog))
+        
+        cancel_btn = QPushButton("Отмена")
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #f44336;
+                color: white;
+                border: none;
+                padding: 8px;
+                font-size: 14px;
+            }
+            QPushButton:hover {
+                background-color: #d32f2f;
+            }
+        """)
+        cancel_btn.clicked.connect(dialog.reject)
+        
+        buttons_layout.addWidget(ok_btn)
+        buttons_layout.addWidget(cancel_btn)
+        
+        layout.addWidget(amount_label)
+        layout.addWidget(self.amount_input)
+        layout.addLayout(buttons_layout)
+        dialog.setLayout(layout)
+
+        center_point = QApplication.desktop().screen().rect().center()
+        dialog_rect = dialog.frameGeometry()
+        dialog_rect.moveCenter(center_point)
+        dialog.move(dialog_rect.topLeft())
+        
+        dialog.exec_()
+
+    def topup_balance(self, dialog):
+        """Пополняет баланс на указанную сумму"""
+        try:
+            amount = int(self.amount_input.text())
+            if amount <= 0:
+                QMessageBox.warning(self, "Ошибка", "Сумма должна быть положительной")
+                return
+                
+            self.balance += amount
+            self.balance_label.setText(f"{self.balance} тг")
+            self.update_balance_in_db(self.username, self.balance)
+            QMessageBox.information(self, "Успешно", f"Баланс пополнен на {amount} тг")
+            dialog.accept()
+        except ValueError:
+            QMessageBox.warning(self, "Ошибка", "Введите корректную сумму")
+
+    def buy_time_package(self, seconds, price):
+        """Покупка пакета времени"""
+        if not self.username:
+            QMessageBox.warning(self, "Ошибка", "Необходимо войти в систему")
+            return
+            
+        if self.balance < price:
+            QMessageBox.warning(self, "Ошибка", "Недостаточно средств на балансе")
+            return
+            
+        # Обновляем баланс и время
+        self.balance -= price
+        self.time_left_seconds += seconds
+        
+        # Обновляем отображение
+        self.balance_label.setText(f"{self.balance} ₽")
+        self.time_label.setText(self.seconds_to_time_str(self.time_left_seconds))
+        
+        # Обновляем базу данных
+        self.update_balance_in_db(self.username, self.balance)
+        self.update_time_left_in_db(self.username, self.time_left_seconds)
+        
+        # Если таймер был остановлен (время закончилось), перезапускаем его
+        if not self.timer.isActive() and self.time_left_seconds > 0:
+            self.timer.start(1000)
+            
+        QMessageBox.information(self, "Успешно", f"Пакет времени приобретен! Добавлено {seconds//60} минут")
 
     def start_timers(self):
         """Запускает все необходимые таймеры"""
@@ -174,8 +427,8 @@ class SettingsWindow(QWidget):
             self.time_label.setText(self.seconds_to_time_str(self.time_left_seconds))
             self.update_time_left_in_db(self.username, self.time_left_seconds)
             
-            # Добавляем проверку на малое оставшееся время (например, меньше 5 минут)
-            if self.time_left_seconds == 300:  # 5 минут = 300 секунд
+            # Добавляем проверку на малое оставшееся время 
+            if self.time_left_seconds == 300: 
                 self.show_time_warning("Осталось 5 минут!")
         else:
             self.time_label.setText("Время вышло")
