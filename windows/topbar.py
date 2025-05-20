@@ -14,7 +14,8 @@ class TopBar(QFrame):
         super().__init__()
         self.setObjectName("TopBar")
         self.main_window = main_window
-        self.setFixedSize(1920, 106)
+        self.scale_factor = main_window.scale_factor
+        self.setFixedSize(int(1920 * self.scale_factor), int(106 * self.scale_factor))
         self.tray_expanded = False  # флаг состояния кастомного трея
 
         self.setup_search()
@@ -29,25 +30,25 @@ class TopBar(QFrame):
         self.search_input = QLineEdit(self)
         self.search_input.setPlaceholderText("Поиск...")
         self.search_input.setObjectName("Search")
-        self.search_input.setFixedSize(480, 60)
-        self.search_input.move(20, 23)
+        self.search_input.setFixedSize(int(480 * self.scale_factor), int(60 * self.scale_factor))
+        self.search_input.move(int(20 * self.scale_factor), int(23 * self.scale_factor))
         self.search_input.textChanged.connect(self.main_window.update_search_results)
 
         search_icon = QToolButton(self.search_input)
         search_icon.setIcon(QIcon("images/search_icon.png"))
-        search_icon.setIconSize(QSize(32, 32))
+        search_icon.setIconSize(QSize(int(32 * self.scale_factor), int(32 * self.scale_factor)))
         search_icon.setStyleSheet("border: none; background: none;")
         search_icon.setCursor(Qt.PointingHandCursor)
-        search_icon.resize(40, 40)
-        search_icon.move(10, 10)
-        self.search_input.setTextMargins(50, 0, 0, 0)
+        search_icon.resize(int(40 * self.scale_factor), int(40 * self.scale_factor))
+        search_icon.move(int(10 * self.scale_factor), int(10 * self.scale_factor))
+        self.search_input.setTextMargins(int(50 * self.scale_factor), 0, 0, 0)
 
 
     def setup_buttons(self):
         # Кнопка "Games"
         self.games_btn = AnimatedButton(self)
         self.games_btn.setIcon(QIcon("images/games_icon.png"))
-        self.games_btn.setIconSize(QSize(64, 64))
+        self.settings_btn.setIconSize(QSize(int(64 * self.scale_factor), int(64 * self.scale_factor)))
         self.games_btn.setFixedSize(64, 64)
         self.games_btn.move(618, 21)
         self.games_btn.setStyleSheet("background: none; border: none;")
@@ -56,7 +57,7 @@ class TopBar(QFrame):
         # Кнопка "Apps"
         self.apps_btn = AnimatedButton(self)
         self.apps_btn.setIcon(QIcon("images/apps_icon.png"))
-        self.apps_btn.setIconSize(QSize(64, 64))
+        self.settings_btn.setIconSize(QSize(int(64 * self.scale_factor), int(64 * self.scale_factor)))
         self.apps_btn.setFixedSize(64, 64)
         self.apps_btn.move(727, 21)
         self.apps_btn.setStyleSheet("background: none; border: none;")
@@ -81,7 +82,7 @@ class TopBar(QFrame):
 
         self.settings_btn = QPushButton(self)
         self.settings_btn.setIcon(QIcon("images/user_icon.png"))
-        self.settings_btn.setIconSize(QSize(64, 64))
+        self.settings_btn.setIconSize(QSize(int(64 * self.scale_factor), int(64 * self.scale_factor)))
         self.settings_btn.setFixedSize(64, 64)
         self.settings_btn.move(1837, 21)
         self.settings_btn.setStyleSheet("background:none; border: none;")

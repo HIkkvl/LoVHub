@@ -32,6 +32,18 @@ def load_stylesheet(theme="dark"):
             {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #212121, stop:1 #171717);
             }
+            QWidget#timer
+            {
+                background: #121212;
+                border: none;
+                border-radius: 0px;
+            }
+            QWidget#balance_box
+            {
+                background: #121212;
+                border: none;
+                border-radius: 0px;
+            }
         """
     else:  # light
         return """
@@ -64,5 +76,17 @@ def load_stylesheet(theme="dark"):
             QWidget#Setting
             {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #BCBABA, stop:1 #A1A1A1);
+            }
+            QWidget#timer
+            {
+                background-color: #878686;
+                border: none;
+                border-radius: 0px;
+            }
+            QWidget#balance_box
+            {
+                background-color: #878686;
+                border: none;
+                border-radius: 0px;
             }
         """

@@ -20,7 +20,8 @@ class SettingsWindow(QWidget):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Popup)
         self.setObjectName("Settings")
-        self.setFixedSize(450, 850)
+        self.scale_factor = parent.scale_factor if parent else 1.0
+        self.setFixedSize(int(450 * self.scale_factor), int(850 * self.scale_factor))
         self.setContentsMargins(14,0,0,0)
       #  self.setStyleSheet("background-color: #212121; color: white; border-radius: 10px;")
 
@@ -66,16 +67,12 @@ class SettingsWindow(QWidget):
 
         # Секция оставшегося времени
         time_left_box = QWidget()
+        time_left_box.setObjectName("timer")
         time_left_box.setFixedSize(411, 45)
-        time_left_box.setStyleSheet("""
-            background-color: #121212;
-            border: none;
-            border-radius: 0px;
-        """)
 
         self.time_label = QLabel(self.seconds_to_time_str(self.time_left_seconds))
         self.time_label.setAlignment(Qt.AlignCenter)
-        self.time_label.setStyleSheet("font-size: 35px;")
+        self.time_label.setStyleSheet("font-size: 35px; background:none;")
 
         time_layout = QVBoxLayout()
         time_layout.addWidget(self.time_label)
@@ -204,45 +201,51 @@ class SettingsWindow(QWidget):
         layout.addLayout(packages_layout)
         layout.addSpacing(20)
 
-         # Секция баланса
+        # Секция баланса и кнопки темы (новый layout)
+        bottom_layout = QHBoxLayout()
+        bottom_layout.setContentsMargins(23, 0, 0, 14)  # Отступы слева и снизу
+        bottom_layout.setSpacing(6)  # Расстояние между элементами
+
         self.balance = self.get_balance_from_db(username)
         balance_box = QWidget()
+        balance_box.setObjectName("balance_box")
         balance_box.setFixedSize(206, 50)
-        balance_box.setStyleSheet("""
-            background-color: #121212;
-            border: none;
-            border-radius: 0px;
-        """)
-        balance_box.mousePressEvent = self.show_topup_dialog  # Добавляем обработчик клика
 
-        # Создаем горизонтальный layout для иконки и текста
+        balance_box.mousePressEvent = self.show_topup_dialog
+
+        # Горизонтальный layout для иконки и текста баланса
         balance_layout = QHBoxLayout()
         balance_layout.setContentsMargins(8, 0, 30, 0)
         balance_layout.setSpacing(0)
         
-        # Добавляем иконку
+        # Иконка баланса
         icon_label = QLabel()
         icon_label.setPixmap(QIcon("images/Balance_card.png").pixmap(48, 48))
+        icon_label.setStyleSheet("background:none;")
         balance_layout.addWidget(icon_label)
         
-        # Добавляем текст баланса
+        # Текст баланса
         self.balance_label = QLabel(f"{self.balance} тг")
-        self.balance_label.setStyleSheet("font-size: 32px; color: #FFFFFF;")
+        self.balance_label.setStyleSheet("font-size: 32px; color: #FFFFFF; background:none;")
         balance_layout.addWidget(self.balance_label)
         
         balance_box.setLayout(balance_layout)
-        layout.addWidget(balance_box, alignment=Qt.AlignHCenter)
-        layout.addSpacing(20)
+        bottom_layout.addWidget(balance_box)
 
         # Кнопка смены темы
         self.theme_btn = AnimatedButton()
         self.theme_btn.setIcon(QIcon("images/dark_them_icon.png"))
         self.theme_btn.setIconSize(QSize(80, 80))
         self.theme_btn.setFixedSize(64, 64)
-        self.theme_btn.setStyleSheet("background: none;")
+        self.theme_btn.setStyleSheet("background: none; border: none;")
         self.theme_btn.clicked.connect(self.change_theme)
-        layout.addWidget(self.theme_btn)
-        layout.addStretch()
+        bottom_layout.addWidget(self.theme_btn)
+
+        bottom_layout.addStretch()  # Растягиваемое пространство справа
+
+        # Добавляем нижний layout в основной
+        layout.addStretch()  # Растягиваемое пространство перед нижней панелью
+        layout.addLayout(bottom_layout)
 
         self.setLayout(layout)
         self.is_closing = False

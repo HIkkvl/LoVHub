@@ -40,6 +40,19 @@ class MainWindow(QWidget):
         super().__init__()
         self.app = app
         self.username = username
+        # Определяем масштаб в зависимости от разрешения экрана
+        screen = self.app.primaryScreen()
+        screen_width = screen.size().width()
+        
+        if screen_width >= 3840:  # 4K
+            self.scale_factor = 2.0
+        elif screen_width >= 2560:  # 2K
+            self.scale_factor = 1.5
+        elif screen_width >= 1920:  # FullHD
+            self.scale_factor = 1.0
+        else:  # HD и меньше
+            self.scale_factor = 0.8
+
         self._is_authenticated = True  # Флаг авторизации
         self.current_theme = "dark"
         self.app.setStyleSheet(load_stylesheet(self.current_theme))
@@ -49,8 +62,12 @@ class MainWindow(QWidget):
         force_fullscreen_work_area()
         disable_task_manager()
 
+        # Применяем масштаб ко всему приложению
+        self.app.setAttribute(Qt.AA_EnableHighDpiScaling)
+        self.app.setAttribute(Qt.AA_UseHighDpiPixmaps)
+
         self.setWindowTitle("Лаунчер")
-        self.setStyleSheet("QPushButton { font-size: 16px; }")
+        self.setStyleSheet(f"QPushButton {{ font-size: {int(16 * self.scale_factor)}px; }}")
 
         self.games, self.tools = load_apps_from_db()
         self.running_procs = []
@@ -178,7 +195,7 @@ class MainWindow(QWidget):
         row, col, max_columns = 0, 0, 4
         for app in items:
             btn = AnimatedButton()
-            btn.setFixedSize(334, 447)
+            btn.setFixedSize(int(334 * self.scale_factor), int(447 * self.scale_factor))
             
             icon_filename = app.get('icon', None)
             icon_exists = icon_filename and os.path.exists(f"static/icons/{icon_filename}")
@@ -186,7 +203,7 @@ class MainWindow(QWidget):
             icon_path = f"static/icons/{icon_filename}" if icon_exists else "static/icons/default_icon.png"
 
             if os.path.exists(icon_path):
-                pixmap = QPixmap(icon_path).scaled(334, 447, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                pixmap = QPixmap(icon_path).scaled(int(334 * self.scale_factor), int(447 * self.scale_factor), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
                 rounded = rounded_pixmap(pixmap, 12)
                 btn.setIcon(QIcon(rounded))
                 btn.setIconSize(QSize(334, 447))
