@@ -45,27 +45,30 @@ class TopBar(QFrame):
 
 
     def setup_buttons(self):
+        # Сначала создаем все кнопки, потом настраиваем их свойства
+        
         # Кнопка "Games"
         self.games_btn = AnimatedButton(self)
         self.games_btn.setIcon(QIcon("images/games_icon.png"))
-        self.settings_btn.setIconSize(QSize(int(64 * self.scale_factor), int(64 * self.scale_factor)))
-        self.games_btn.setFixedSize(64, 64)
-        self.games_btn.move(618, 21)
+        self.games_btn.setIconSize(QSize(int(64 * self.scale_factor), int(64 * self.scale_factor)))
+        self.games_btn.setFixedSize(int(64 * self.scale_factor), int(64 * self.scale_factor))
+        self.games_btn.move(int(618 * self.scale_factor), int(21 * self.scale_factor))
         self.games_btn.setStyleSheet("background: none; border: none;")
         self.games_btn.clicked.connect(lambda: self.main_window.switch_tab(0))
 
         # Кнопка "Apps"
         self.apps_btn = AnimatedButton(self)
         self.apps_btn.setIcon(QIcon("images/apps_icon.png"))
-        self.settings_btn.setIconSize(QSize(int(64 * self.scale_factor), int(64 * self.scale_factor)))
-        self.apps_btn.setFixedSize(64, 64)
-        self.apps_btn.move(727, 21)
+        self.apps_btn.setIconSize(QSize(int(64 * self.scale_factor), int(64 * self.scale_factor)))
+        self.apps_btn.setFixedSize(int(64 * self.scale_factor), int(64 * self.scale_factor))
+        self.apps_btn.move(int(727 * self.scale_factor), int(21 * self.scale_factor))
         self.apps_btn.setStyleSheet("background: none; border: none;")
         self.apps_btn.clicked.connect(lambda: self.main_window.switch_tab(1))
 
+        # Кнопка переключения трея
         self.tray_toggle_btn = QPushButton("˄", self)
-        self.tray_toggle_btn.setFixedSize(30, 30)
-        self.tray_toggle_btn.move(1557, 40)
+        self.tray_toggle_btn.setFixedSize(int(30 * self.scale_factor), int(30 * self.scale_factor))
+        self.tray_toggle_btn.move(int(1557 * self.scale_factor), int(40 * self.scale_factor))
         self.tray_toggle_btn.setStyleSheet("""
             QPushButton {
                 color: white;
@@ -80,11 +83,12 @@ class TopBar(QFrame):
         """)
         self.tray_toggle_btn.clicked.connect(self.toggle_custom_tray)
 
+        # Кнопка настроек (добавляем в самом конце)
         self.settings_btn = QPushButton(self)
         self.settings_btn.setIcon(QIcon("images/user_icon.png"))
         self.settings_btn.setIconSize(QSize(int(64 * self.scale_factor), int(64 * self.scale_factor)))
-        self.settings_btn.setFixedSize(64, 64)
-        self.settings_btn.move(1837, 21)
+        self.settings_btn.setFixedSize(int(64 * self.scale_factor), int(64 * self.scale_factor))
+        self.settings_btn.move(int(1837 * self.scale_factor), int(21 * self.scale_factor))
         self.settings_btn.setStyleSheet("background:none; border: none;")
         self.settings_btn.clicked.connect(self.main_window.open_settings_window)
 
