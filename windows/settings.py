@@ -1,6 +1,8 @@
 import sqlite3
 import psutil
 import getpass
+from PyQt5.QtWidgets import QGraphicsDropShadowEffect
+from PyQt5.QtGui import QColor
 from PyQt5.QtWidgets import QDialog, QLineEdit
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtGui import QIntValidator

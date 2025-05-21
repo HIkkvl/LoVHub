@@ -1,7 +1,8 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStackedWidget, QScrollArea, 
                             QLabel, QGridLayout, QMessageBox, QInputDialog, 
-                            QLineEdit, QShortcut, QSizePolicy,QPushButton)
-from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPainterPath, QKeySequence
+                            QLineEdit, QShortcut, QSizePolicy, QPushButton,
+                            QGraphicsDropShadowEffect, QFrame)  
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPainterPath, QKeySequence, QColor  
 from PyQt5.QtCore import Qt, QTimer, QSize
 from theme.theme import load_stylesheet
 from core.app_launcher import AppLauncherThread
@@ -316,13 +317,90 @@ class MainWindow(QWidget):
     def ask_exit_password(self):
         pwd, ok = QInputDialog.getText(self, "Выход", "Введите админ-пароль:", QLineEdit.Password)
         if ok and pwd == "1478":
-            enable_task_manager()
-            from utils.win_tools import show_taskbar, start_explorer
-            show_taskbar()
-            start_explorer()
-            self.app.quit()
-        else:
+            if not hasattr(self, 'admin_panel'):
+                self.init_admin_panel()
+            
+            # Переключаем видимость панели
+            if hasattr(self, 'admin_panel') and self.admin_panel.isVisible():
+                self.admin_panel.hide()
+            else:
+                self.admin_panel.show()
+        else:   
             QMessageBox.warning(self, "Ошибка", "Неверный пароль!")
+
+    def init_admin_panel(self):
+        """Инициализация панели администратора с тенью"""
+        self.admin_panel = QFrame(self)
+        self.admin_panel.setStyleSheet("""
+            QFrame {
+                background-color: #121212;
+                border: none;
+                border-radius: 0px;
+            }
+        """)
+        
+        # Настройка тени
+        shadow = QGraphicsDropShadowEffect()
+        shadow.setBlurRadius(32.9)  # Размытие
+        shadow.setXOffset(9)       # Смещение по X (правая тень)
+        shadow.setYOffset(0)       # Смещение по Y
+        shadow.setColor(QColor(0, 0, 0, 64))  # RGBA: #00000040
+        
+        self.admin_panel.setGraphicsEffect(shadow)
+        self.admin_panel.setFixedWidth(105)
+        
+        
+        topbar_height = self.topbar.height() if hasattr(self, 'topbar') else 0
+        self.admin_panel.setFixedHeight(self.height() - topbar_height)
+        self.admin_panel.move(0, topbar_height)
+        self.admin_panel.hide()
+        
+        # Добавляем кнопки
+        exit_btn = QPushButton("Выйти", self.admin_panel)
+        exit_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #EAA21B;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #F0B540;
+            }
+        """)
+        exit_btn.setFixedWidth(85)
+        exit_btn.setFixedHeight(30)
+        exit_btn.move(10, 10)
+        exit_btn.clicked.connect(self.clean_exit)
+        
+        settings_btn = QPushButton("Настройки", self.admin_panel)
+        settings_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #333;
+                color: white;
+                border: none;
+                padding: 5px;
+                border-radius: 3px;
+                font-size: 12px;
+            }
+            QPushButton:hover {
+                background-color: #444;
+            }
+        """)
+        settings_btn.setFixedWidth(85)
+        settings_btn.setFixedHeight(30)
+        settings_btn.move(10, 50)
+        settings_btn.clicked.connect(self.open_settings_window)
+
+    def clean_exit(self):
+        """Корректный выход из системы"""
+        enable_task_manager()
+        from utils.win_tools import show_taskbar, start_explorer
+        show_taskbar()
+        start_explorer()
+        self.app.quit()
 
     def switch_tab(self, index):
         if self.stack.currentIndex() != index:
