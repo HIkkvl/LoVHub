@@ -91,6 +91,11 @@ class MainWindow(QWidget):
         # Запуск таймеров
         QTimer.singleShot(2000, self.taskbar_worker.start)
 
+    def closeEvent(self, event):
+        # Игнорируем попытку закрытия окна Alt+F4
+        event.ignore()
+
+
     def init_ui(self):
         """Инициализация пользовательского интерфейса"""
         main_layout = QVBoxLayout(self)
@@ -237,7 +242,6 @@ class MainWindow(QWidget):
         page_layout.addWidget(scroll_area)
         return page_widget
 
-    # Остальные методы класса остаются без изменений
     def update_taskbar_icons(self, hwnd_title_icon_list):
         hwnd_to_data = {hwnd: (title, icon) for hwnd, title, icon in hwnd_title_icon_list}
         current_hwnds = list(hwnd_to_data.keys())

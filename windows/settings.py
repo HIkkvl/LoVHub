@@ -25,7 +25,6 @@ class SettingsWindow(QWidget):
         self.scale_factor = parent.scale_factor if parent else 1.0
         self.setFixedSize(int(450 * self.scale_factor), int(850 * self.scale_factor))
         self.setContentsMargins(14,0,0,0)
-      #  self.setStyleSheet("background-color: #212121; color: white; border-radius: 10px;")
 
         layout = QVBoxLayout()
 
