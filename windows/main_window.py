@@ -2,8 +2,8 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStackedWidget, QScrollArea,
                             QLabel, QGridLayout, QMessageBox, QInputDialog, 
                             QLineEdit, QShortcut, QSizePolicy, QPushButton,
                             QGraphicsDropShadowEffect, QFrame,QCheckBox,QDialog)  
-from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPainterPath, QKeySequence, QColor  
-from PyQt5.QtCore import Qt, QTimer, QSize
+from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPainterPath, QKeySequence, QColor
+from PyQt5.QtCore import Qt, QTimer, QSize,QRect
 from theme.theme import load_stylesheet
 from core.app_launcher import AppLauncherThread
 from core.taskbar_worker import TaskbarWorker
@@ -318,16 +318,55 @@ class MainWindow(QWidget):
 
 
     def open_add_app_dialog(self):
-        dialog = AddAppDialog(self)
+        # Получаем геометрию кнопки относительно её родителя
+        if hasattr(self, 'add_btn'):
+            button_geometry = self.add_btn.geometry()
+        else:
+            # Если кнопка почему-то не создана, используем позицию по умолчанию
+            button_geometry = QRect(0, 0, 40, 40)
+        
+        # Создаем диалог и передаем геометрию
+        dialog = AddAppDialog(self, button_geometry)
+        # Стилизация окна
+        dialog.setStyleSheet("""
+            QDialog {
+                background-color: #2a2a2a;
+                border: 2px solid #EAA21B;
+                border-radius: 8px;
+            }
+            QLabel {
+                color: white;
+            }
+            QLineEdit {
+                background-color: #333;
+                color: white;
+                border: 1px solid #555;
+                border-radius: 4px;
+                padding: 5px;
+            }
+            QPushButton {
+                background-color: #444;
+                color: white;
+                border: none;
+                border-radius: 4px;
+                padding: 5px 10px;
+            }
+            QPushButton:hover {
+                background-color: #555;
+            }
+            QGroupBox {
+                color: white;
+                border: 1px solid #555;
+                border-radius: 5px;
+                margin-top: 10px;
+                padding-top: 15px;
+            }
+            QRadioButton {
+                color: white;
+            }
+        """)
         if dialog.exec_() == QDialog.Accepted:
             data = dialog.get_data()
-            
-            # Определяем категорию (игра или приложение)
-            path = data["path"]
-            if path.endswith(".url") or ("steam.exe" in path.lower()):
-                category = "game"
-            else:
-                category = "app"
             
             # Сохраняем иконку (если выбрана)
             icon_filename = None
@@ -340,10 +379,11 @@ class MainWindow(QWidget):
             
             # Добавляем в базу данных
             from utils.helpers import add_app_to_db
-            add_app_to_db(data["name"], data["path"], category, icon_filename)
+            add_app_to_db(data["name"], data["path"], data["type"], icon_filename)
             
             self.reload_apps_from_db()
 
+            
     def run_app(self, name, path):
         try:
             if path.startswith('steam://'):
@@ -477,15 +517,16 @@ class MainWindow(QWidget):
         main_layout.setContentsMargins(10, 10, 10, 20)
         main_layout.setSpacing(15)
         
-        # Кнопка добавления приложения (ПЕРЕМЕЩЕНА ВВЕРХ)
-        add_btn = AnimatedButton(self.admin_panel)
-        add_btn.setToolTip("Добавить приложение")
-        add_btn.setFixedSize(40, 40)
-        add_btn.setIconSize(QSize(32, 32))
+       
+        # Делаем кнопку атрибутом класса
+        self.add_btn = AnimatedButton(self.admin_panel)
+        self.add_btn.setToolTip("Добавить приложение")
+        self.add_btn.setFixedSize(40, 40)
+        self.add_btn.setIconSize(QSize(32, 32))
         add_icon_path = "images/add_icon.png"
         if os.path.exists(add_icon_path):
-            add_btn.setIcon(QIcon(add_icon_path))
-        add_btn.setStyleSheet("""
+            self.add_btn.setIcon(QIcon(add_icon_path))
+        self.add_btn.setStyleSheet("""
             QPushButton {
                 background: transparent;
                 border: none;
@@ -496,8 +537,8 @@ class MainWindow(QWidget):
                 border-radius: 3px;
             }
         """)
-        add_btn.clicked.connect(self.open_add_app_dialog)
-        main_layout.addWidget(add_btn, alignment=Qt.AlignCenter)
+        self.add_btn.clicked.connect(self.open_add_app_dialog)
+        main_layout.addWidget(self.add_btn, alignment=Qt.AlignCenter)
 
         # Кнопка удаления выделенных приложений (ПЕРЕМЕЩЕНА ВВЕРХ)
         delete_btn = AnimatedButton(self.admin_panel)
