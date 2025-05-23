@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStackedWidget, QScrollArea,
                             QLineEdit, QShortcut, QSizePolicy, QPushButton,
                             QGraphicsDropShadowEffect, QFrame,QCheckBox,QDialog)  
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPainterPath, QKeySequence, QColor
-from PyQt5.QtCore import Qt, QTimer, QSize,QRect
+from PyQt5.QtCore import Qt, QTimer, QSize,QRect,QPoint
 from theme.theme import load_stylesheet
 from core.app_launcher import AppLauncherThread
 from core.taskbar_worker import TaskbarWorker
@@ -79,15 +79,13 @@ class MainWindow(QWidget):
         self.filtered_apps = self.tools.copy()
         self.settings_open = False
 
-        # Инициализация компонентов
         self.init_ui()
         self.init_timers()
-        self.init_settings_window()  # Создаем окно настроек сразу
+        self.init_settings_window()  
 
-        # Подключаем сигнал завершения времени
         self.settings_window.time_expired.connect(self.handle_time_expired)
         
-        # Горячие клавиши
+
         self.set_exit_hotkey()
         keyboard.add_hotkey('alt+shift', self.topbar.switch_language)
 
@@ -95,7 +93,6 @@ class MainWindow(QWidget):
         QTimer.singleShot(2000, self.taskbar_worker.start)
 
     def closeEvent(self, event):
-        # Игнорируем попытку закрытия окна Alt+F4
         event.ignore()
 
 
@@ -139,11 +136,9 @@ class MainWindow(QWidget):
         """Инициализация окна настроек"""
         from windows.settings import SettingsWindow
         self.settings_window = SettingsWindow(self)
-        # Таймеры уже запущены в конструкторе SettingsWindow
 
     def handle_time_expired(self):
         """Обработчик завершения времени"""
-        # Восстанавливаем системные элементы
         enable_task_manager()
         from utils.win_tools import show_taskbar, start_explorer
         show_taskbar()
@@ -230,10 +225,7 @@ class MainWindow(QWidget):
                     border-radius: 12px;
                     font-size: 20px;
                     text-align: center;
-                    background: qlineargradient(
-                        x1: 0, y1: 0,
-                        x2: 0, y2: 1,
-                        stop:0 #EAA21B, stop:1 #212121);
+                    background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #212121);
                 }}
                 QPushButton:hover {{
                     background-color: #EAA21B;
@@ -245,10 +237,8 @@ class MainWindow(QWidget):
                 checkbox.setChecked(app["name"] in self.selected_apps)
                 checkbox.setStyleSheet("QCheckBox::indicator { width: 24px; height: 24px; }")
                 
-                # Добавляем чекбокс в контейнер
                 container_layout.addWidget(checkbox, alignment=Qt.AlignTop | Qt.AlignRight)
                 
-                # Обработчик клика по чекбоксу
                 def on_checkbox_clicked(state, app_name=app["name"]):
                     if state:
                         self.selected_apps.add(app_name)
@@ -257,7 +247,6 @@ class MainWindow(QWidget):
                 
                 checkbox.stateChanged.connect(on_checkbox_clicked)
                 
-                # Обработчик клика по кнопке - просто переключаем чекбокс
                 def on_button_clicked():
                     checkbox.setChecked(not checkbox.isChecked())
                 
@@ -265,7 +254,6 @@ class MainWindow(QWidget):
             else:
                 btn.clicked.connect(lambda _, n=app["name"], p=app["path"]: self.run_app(n, p))
 
-            # Оборачиваем кнопку в контейнер и добавляем в layout
             btn.setLayout(container_layout)
             apps_layout.addWidget(btn, row, col)
 
@@ -318,57 +306,85 @@ class MainWindow(QWidget):
 
 
     def open_add_app_dialog(self):
-        # Получаем геометрию кнопки относительно её родителя
-        if hasattr(self, 'add_btn'):
-            button_geometry = self.add_btn.geometry()
+        if not hasattr(self, 'add_btn'):
+            print("Warning: add_btn attribute not found in MainWindow when opening AddAppDialog. Using fallback geometry.")
+            button_geometry = QRect(self.mapToGlobal(QPoint(10, 70)), QSize(40,40)) 
         else:
-            # Если кнопка почему-то не создана, используем позицию по умолчанию
-            button_geometry = QRect(0, 0, 40, 40)
+            button_global_pos = self.add_btn.mapToGlobal(QPoint(0, 0))
+            button_geometry = QRect(button_global_pos, self.add_btn.size())
         
-        # Создаем диалог и передаем геометрию
-        dialog = AddAppDialog(self, button_geometry)
-        # Стилизация окна
+        topbar_abs_rect = None
+        if hasattr(self, 'topbar') and self.topbar.isVisible():
+            topbar_abs_rect = QRect(self.topbar.mapToGlobal(QPoint(0,0)), self.topbar.size())
+
+        admin_panel_abs_rect = None
+        if hasattr(self, 'admin_panel') and self.admin_panel.isVisible():
+            admin_panel_abs_rect = QRect(self.admin_panel.mapToGlobal(QPoint(0,0)), self.admin_panel.size())
+        
+        dialog = AddAppDialog(self, button_geometry, topbar_abs_rect, admin_panel_abs_rect)
+        
         dialog.setStyleSheet("""
             QDialog {
-                background-color: #2a2a2a;
-                border: 2px solid #EAA21B;
-                border-radius: 8px;
+                background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #202020, stop:1 #121212);
+                border: none;
+                border-radius: 0px;
+                color: white; 
             }
             QLabel {
                 color: white;
+                font-size: 14px; 
             }
             QLineEdit {
-                background-color: #333;
+                background-color: #3c3c3c;
                 color: white;
                 border: 1px solid #555;
                 border-radius: 4px;
                 padding: 5px;
-            }
-            QPushButton {
-                background-color: #444;
-                color: white;
-                border: none;
-                border-radius: 4px;
-                padding: 5px 10px;
-            }
-            QPushButton:hover {
-                background-color: #555;
+                font-size: 14px; 
             }
             QGroupBox {
                 color: white;
+                font-size: 14px; 
                 border: 1px solid #555;
-                border-radius: 5px;
+                border-radius: 4px;
                 margin-top: 10px;
-                padding-top: 15px;
+            }
+            QGroupBox::title {
+                subcontrol-origin: margin;
+                subcontrol-position: top left;
+                padding: 0 3px;
+                left: 10px; 
             }
             QRadioButton {
                 color: white;
+                font-size: 14px; 
+            }
+            QPushButton {
+                background-color: #EAA21B;
+                color: #212121; 
+                border: none;
+                border-radius: 4px;
+                padding: 8px 15px;
+                font-size: 14px; 
+            }
+            QPushButton:hover {
+                background-color: #F0B232; 
+            }
+            QPushButton:pressed {
+                background-color: #D49007; 
             }
         """)
+        
+        shadow = QGraphicsDropShadowEffect(dialog)
+        shadow.setBlurRadius(32)
+        shadow.setXOffset(9)
+        shadow.setYOffset(0)
+        shadow.setColor(QColor(0, 0, 0, 64))
+        dialog.setGraphicsEffect(shadow)
+        
         if dialog.exec_() == QDialog.Accepted:
             data = dialog.get_data()
             
-            # Сохраняем иконку (если выбрана)
             icon_filename = None
             if data["icon"]:
                 try:
@@ -377,7 +393,6 @@ class MainWindow(QWidget):
                 except Exception as e:
                     QMessageBox.warning(self, "Ошибка", f"Не удалось сохранить иконку: {e}")
             
-            # Добавляем в базу данных
             from utils.helpers import add_app_to_db
             add_app_to_db(data["name"], data["path"], data["type"], icon_filename)
             
@@ -387,9 +402,8 @@ class MainWindow(QWidget):
     def run_app(self, name, path):
         try:
             if path.startswith('steam://'):
-                self.run_steam_game(name, path)  # Выносим Steam-запуск в отдельный метод
+                self.run_steam_game(name, path)  
             else:
-                # Обычные .exe и .lnk
                 self.launcher_thread = AppLauncherThread(name, path)
                 self.launcher_thread.finished.connect(self.on_app_launched)
                 self.launcher_thread.error.connect(self.on_app_launch_error)
@@ -405,23 +419,17 @@ class MainWindow(QWidget):
             import subprocess
             import time
             
-            # Вариант 1: Через subprocess (более надежно)
             subprocess.Popen(["start", steam_url], shell=True)
             
-            # Вариант 2: Через os.startfile (если subprocess не работает)
-            # os.startfile(steam_url)
-            
-            # Даем Steam 3 секунды на обработку
             time.sleep(3)
             
-            # Проверяем, запустился ли процесс игры (опционально)
+
             game_running = self.check_if_game_running(name)
             if not game_running:
                 QMessageBox.warning(self, "Ошибка", "Игра не запустилась. Попробуйте еще раз.")
             
         except Exception as e:
             print(f"[Steam] Ошибка запуска: {e}")
-            # Не показываем ошибку пользователю, если игра запустилась
 
     def check_if_game_running(self, name):
         """Проверяет, запущен ли процесс игры (для Steam-игр)"""
@@ -431,7 +439,7 @@ class MainWindow(QWidget):
                     return True
             return False
         except:
-            return False  # Если проверка не удалась
+            return False  
 
 
     def on_app_launched(self, name, pid):

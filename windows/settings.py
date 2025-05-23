@@ -95,13 +95,10 @@ class SettingsWindow(QWidget):
         pkg1_btn.setFixedSize(120, 80)
         pkg1_btn.setStyleSheet("""
             QPushButton {
-                background-color: #333;
+                background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D);
                 color: white;
                 border-radius: 5px;
                 font-size: 16px;
-            }
-            QPushButton:hover {
-                background-color: #444;
             }
         """)
         pkg1_btn.clicked.connect(lambda: self.buy_time_package(1800, 150))
@@ -112,13 +109,10 @@ class SettingsWindow(QWidget):
         pkg2_btn.setFixedSize(120, 80)
         pkg2_btn.setStyleSheet("""
             QPushButton {
-                background-color: #333;
+                background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D);
                 color: white;
                 border-radius: 5px;
                 font-size: 16px;
-            }
-            QPushButton:hover {
-                background-color: #444;
             }
         """)
         pkg2_btn.clicked.connect(lambda: self.buy_time_package(3600, 350))
@@ -129,13 +123,10 @@ class SettingsWindow(QWidget):
         pkg3_btn.setFixedSize(120, 80)
         pkg3_btn.setStyleSheet("""
             QPushButton {
-                background-color: #333;
+                background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D);
                 color: white;
                 border-radius: 5px;
                 font-size: 16px;
-            }
-            QPushButton:hover {
-                background-color: #444;
             }
         """)
         pkg3_btn.clicked.connect(lambda: self.buy_time_package(7200, 150))
@@ -152,13 +143,10 @@ class SettingsWindow(QWidget):
         pkg4_btn.setFixedSize(120, 80)
         pkg4_btn.setStyleSheet("""
             QPushButton {
-                background-color: #333;
+                background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D);
                 color: white;
                 border-radius: 5px;
                 font-size: 16px;
-            }
-            QPushButton:hover {
-                background-color: #444;
             }
         """)
         pkg4_btn.clicked.connect(lambda: self.buy_time_package(10800, 200))
@@ -169,13 +157,10 @@ class SettingsWindow(QWidget):
         pkg5_btn.setFixedSize(120, 80)
         pkg5_btn.setStyleSheet("""
             QPushButton {
-                background-color: #333;
+                background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D);
                 color: white;
                 border-radius: 5px;
                 font-size: 16px;
-            }
-            QPushButton:hover {
-                background-color: #444;
             }
         """)
         pkg5_btn.clicked.connect(lambda: self.buy_time_package(18000, 2000))
@@ -186,13 +171,10 @@ class SettingsWindow(QWidget):
         pkg6_btn.setFixedSize(120, 80)
         pkg6_btn.setStyleSheet("""
             QPushButton {
-                background-color: #333;
+                background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D);
                 color: white;
                 border-radius: 5px;
                 font-size: 16px;
-            }
-            QPushButton:hover {
-                background-color: #444;
             }
         """)
         pkg6_btn.clicked.connect(lambda: self.buy_time_package(36000, 3500))
