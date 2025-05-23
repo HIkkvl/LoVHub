@@ -78,11 +78,13 @@ def run_app(app_name):
     app = next((app for app in get_apps() if app["name"] == app_name), None)
     if app:
         try:
-            os.startfile(app["path"])
+            os.startfile(app["path"])  # Работает и для steam:// URI
             return redirect(url_for('index'))
         except Exception as e:
             return f"Error: {e}"
     return f"App {app_name} not found"
+
+
 
 @app.route('/add', methods=['GET', 'POST'])
 def add_app():

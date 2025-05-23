@@ -1,7 +1,7 @@
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStackedWidget, QScrollArea, 
                             QLabel, QGridLayout, QMessageBox, QInputDialog, 
                             QLineEdit, QShortcut, QSizePolicy, QPushButton,
-                            QGraphicsDropShadowEffect, QFrame)  
+                            QGraphicsDropShadowEffect, QFrame,QCheckBox,QDialog)  
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPainterPath, QKeySequence, QColor  
 from PyQt5.QtCore import Qt, QTimer, QSize
 from theme.theme import load_stylesheet
@@ -10,7 +10,9 @@ from core.taskbar_worker import TaskbarWorker
 from utils.win_tools import (hide_taskbar, kill_explorer, 
                             force_fullscreen_work_area, 
                             disable_task_manager, enable_task_manager)
+from utils.helpers import parse_steam_url_shortcut, parse_windows_shortcut
 from utils.helpers import load_apps_from_db, AnimatedButton
+from utils.dialogs import AddAppDialog
 from utils.network import send_app_launch_info
 import win32gui
 import win32con
@@ -41,7 +43,8 @@ class MainWindow(QWidget):
         super().__init__()
         self.app = app
         self.username = username
-        # Определяем масштаб в зависимости от разрешения экрана
+        self.edit_mode = False
+        self.selected_apps = set()
         screen = self.app.primaryScreen()
         screen_width = screen.size().width()
         
@@ -202,10 +205,16 @@ class MainWindow(QWidget):
         for app in items:
             btn = AnimatedButton()
             btn.setFixedSize(int(334 * self.scale_factor), int(447 * self.scale_factor))
-            
+
+            # Контейнер для иконки и чекбокса
+            container = QWidget()
+            container_layout = QVBoxLayout(container)
+            container_layout.setContentsMargins(0, 0, 0, 0)
+            container_layout.setSpacing(0)
+
+            # Иконка
             icon_filename = app.get('icon', None)
             icon_exists = icon_filename and os.path.exists(f"static/icons/{icon_filename}")
-
             icon_path = f"static/icons/{icon_filename}" if icon_exists else "static/icons/default_icon.png"
 
             if os.path.exists(icon_path):
@@ -231,8 +240,35 @@ class MainWindow(QWidget):
                 }}
             """)
 
-            btn.clicked.connect(lambda _, n=app["name"], p=app["path"]: self.run_app(n, p))
+            if self.edit_mode:
+                checkbox = QCheckBox()
+                checkbox.setChecked(app["name"] in self.selected_apps)
+                checkbox.setStyleSheet("QCheckBox::indicator { width: 24px; height: 24px; }")
+                
+                # Добавляем чекбокс в контейнер
+                container_layout.addWidget(checkbox, alignment=Qt.AlignTop | Qt.AlignRight)
+                
+                # Обработчик клика по чекбоксу
+                def on_checkbox_clicked(state, app_name=app["name"]):
+                    if state:
+                        self.selected_apps.add(app_name)
+                    else:
+                        self.selected_apps.discard(app_name)
+                
+                checkbox.stateChanged.connect(on_checkbox_clicked)
+                
+                # Обработчик клика по кнопке - просто переключаем чекбокс
+                def on_button_clicked():
+                    checkbox.setChecked(not checkbox.isChecked())
+                
+                btn.clicked.connect(on_button_clicked)
+            else:
+                btn.clicked.connect(lambda _, n=app["name"], p=app["path"]: self.run_app(n, p))
+
+            # Оборачиваем кнопку в контейнер и добавляем в layout
+            btn.setLayout(container_layout)
             apps_layout.addWidget(btn, row, col)
+
             col += 1
             if col >= max_columns:
                 col = 0
@@ -280,11 +316,83 @@ class MainWindow(QWidget):
             btn.clicked.connect(lambda _, hwnd=hwnd: self.focus_and_toggle(hwnd))
             self.topbar.running_apps_container.addWidget(btn)
 
+
+    def open_add_app_dialog(self):
+        dialog = AddAppDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            data = dialog.get_data()
+            
+            # Определяем категорию (игра или приложение)
+            path = data["path"]
+            if path.endswith(".url") or ("steam.exe" in path.lower()):
+                category = "game"
+            else:
+                category = "app"
+            
+            # Сохраняем иконку (если выбрана)
+            icon_filename = None
+            if data["icon"]:
+                try:
+                    from utils.helpers import save_icon
+                    icon_filename = save_icon(data["icon"])
+                except Exception as e:
+                    QMessageBox.warning(self, "Ошибка", f"Не удалось сохранить иконку: {e}")
+            
+            # Добавляем в базу данных
+            from utils.helpers import add_app_to_db
+            add_app_to_db(data["name"], data["path"], category, icon_filename)
+            
+            self.reload_apps_from_db()
+
     def run_app(self, name, path):
-        self.launcher_thread = AppLauncherThread(name, path)
-        self.launcher_thread.finished.connect(self.on_app_launched)
-        self.launcher_thread.error.connect(self.on_app_launch_error)
-        self.launcher_thread.start()
+        try:
+            if path.startswith('steam://'):
+                self.run_steam_game(name, path)  # Выносим Steam-запуск в отдельный метод
+            else:
+                # Обычные .exe и .lnk
+                self.launcher_thread = AppLauncherThread(name, path)
+                self.launcher_thread.finished.connect(self.on_app_launched)
+                self.launcher_thread.error.connect(self.on_app_launch_error)
+                self.launcher_thread.start()
+            
+            send_app_launch_info(name)
+        except Exception as e:
+            QMessageBox.warning(self, "Ошибка запуска", f"Не удалось запустить: {str(e)}")
+
+    def run_steam_game(self, name, steam_url):
+        """Запускает игру через Steam, игнорируя ложные ошибки"""
+        try:
+            import subprocess
+            import time
+            
+            # Вариант 1: Через subprocess (более надежно)
+            subprocess.Popen(["start", steam_url], shell=True)
+            
+            # Вариант 2: Через os.startfile (если subprocess не работает)
+            # os.startfile(steam_url)
+            
+            # Даем Steam 3 секунды на обработку
+            time.sleep(3)
+            
+            # Проверяем, запустился ли процесс игры (опционально)
+            game_running = self.check_if_game_running(name)
+            if not game_running:
+                QMessageBox.warning(self, "Ошибка", "Игра не запустилась. Попробуйте еще раз.")
+            
+        except Exception as e:
+            print(f"[Steam] Ошибка запуска: {e}")
+            # Не показываем ошибку пользователю, если игра запустилась
+
+    def check_if_game_running(self, name):
+        """Проверяет, запущен ли процесс игры (для Steam-игр)"""
+        try:
+            for proc in psutil.process_iter(['name']):
+                if name.lower() in proc.info['name'].lower():
+                    return True
+            return False
+        except:
+            return False  # Если проверка не удалась
+
 
     def on_app_launched(self, name, pid):
         self.running_procs.append((name, pid))
@@ -325,15 +433,21 @@ class MainWindow(QWidget):
                 self.init_admin_panel()
             
             # Переключаем видимость панели
-            if hasattr(self, 'admin_panel') and self.admin_panel.isVisible():
+            if self.admin_panel.isVisible():
                 self.admin_panel.hide()
+                self.edit_mode = False
+                self.selected_apps.clear()
+                self.reload_apps_from_db()
             else:
                 self.admin_panel.show()
+                self.edit_mode = True
+                self.selected_apps.clear()
+                self.reload_apps_from_db()
         else:   
             QMessageBox.warning(self, "Ошибка", "Неверный пароль!")
 
     def init_admin_panel(self):
-        """Инициализация панели администратора с тенью"""
+        """Инициализация панели администратора с иконками внизу"""
         self.admin_panel = QFrame(self)
         self.admin_panel.setStyleSheet("""
             QFrame {
@@ -345,62 +459,134 @@ class MainWindow(QWidget):
         
         # Настройка тени
         shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(32.9)  # Размытие
-        shadow.setXOffset(9)       # Смещение по X (правая тень)
-        shadow.setYOffset(0)       # Смещение по Y
-        shadow.setColor(QColor(0, 0, 0, 64))  # RGBA: #00000040
-        
+        shadow.setBlurRadius(32.9)
+        shadow.setXOffset(9)
+        shadow.setYOffset(0)
+        shadow.setColor(QColor(0, 0, 0, 64))
         self.admin_panel.setGraphicsEffect(shadow)
         self.admin_panel.setFixedWidth(105)
         
-        
         topbar_height = self.topbar.height() if hasattr(self, 'topbar') else 0
-        self.admin_panel.setFixedHeight(self.height() - topbar_height)
+        panel_height = self.height() - topbar_height
+        self.admin_panel.setFixedHeight(panel_height)
         self.admin_panel.move(0, topbar_height)
         self.admin_panel.hide()
+
+        # Основной контейнер с выравниванием вниз
+        main_layout = QVBoxLayout()
+        main_layout.setContentsMargins(10, 10, 10, 20)
+        main_layout.setSpacing(15)
         
-        # Добавляем кнопки
-        exit_btn = QPushButton("Выйти", self.admin_panel)
+        # Кнопка добавления приложения (ПЕРЕМЕЩЕНА ВВЕРХ)
+        add_btn = AnimatedButton(self.admin_panel)
+        add_btn.setToolTip("Добавить приложение")
+        add_btn.setFixedSize(40, 40)
+        add_btn.setIconSize(QSize(32, 32))
+        add_icon_path = "images/add_icon.png"
+        if os.path.exists(add_icon_path):
+            add_btn.setIcon(QIcon(add_icon_path))
+        add_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #3a3;
+                border-radius: 3px;
+            }
+        """)
+        add_btn.clicked.connect(self.open_add_app_dialog)
+        main_layout.addWidget(add_btn, alignment=Qt.AlignCenter)
+
+        # Кнопка удаления выделенных приложений (ПЕРЕМЕЩЕНА ВВЕРХ)
+        delete_btn = AnimatedButton(self.admin_panel)
+        delete_btn.setToolTip("Удалить выбранные приложения")
+        delete_btn.setFixedSize(40, 40)
+        delete_btn.setIconSize(QSize(32, 32))
+        delete_icon_path = "images/delete_icon.png"
+        if os.path.exists(delete_icon_path):
+            delete_btn.setIcon(QIcon(delete_icon_path))
+        delete_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #933;
+                border-radius: 3px;
+            }
+        """)
+        delete_btn.clicked.connect(self.delete_selected_apps)
+        main_layout.addWidget(delete_btn, alignment=Qt.AlignCenter)
+
+        # Добавляем распорку, чтобы оставшиеся кнопки были внизу
+        main_layout.addStretch()
+
+        # Кнопка диспетчера задач
+        taskmgr_btn = AnimatedButton(self.admin_panel)
+        taskmgr_icon_path = "images/taskmanager_icon.png"
+        if os.path.exists(taskmgr_icon_path):
+            taskmgr_icon = QIcon(taskmgr_icon_path)
+            taskmgr_btn.setIcon(taskmgr_icon)
+            taskmgr_btn.setIconSize(QSize(32, 32))
+        taskmgr_btn.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                border: none;
+                padding: 5px;
+            }
+            QPushButton:hover {
+                background-color: #333;
+                border-radius: 3px;
+            }
+        """)
+        taskmgr_btn.setFixedSize(40, 40)
+        taskmgr_btn.setToolTip("Открыть диспетчер задач")
+        taskmgr_btn.clicked.connect(lambda: subprocess.Popen("taskmgr", shell=True))
+        main_layout.addWidget(taskmgr_btn, alignment=Qt.AlignCenter)
+
+        # Кнопка выхода
+        exit_btn = AnimatedButton(self.admin_panel)
+        exit_icon_path = "images/exit_icon.png"
+        if os.path.exists(exit_icon_path):
+            exit_icon = QIcon(exit_icon_path)
+            exit_btn.setIcon(exit_icon)
+            exit_btn.setIconSize(QSize(32, 32))
         exit_btn.setStyleSheet("""
             QPushButton {
-                background-color: #EAA21B;
-                color: white;
+                background: transparent;
                 border: none;
                 padding: 5px;
-                border-radius: 3px;
-                font-size: 12px;
             }
             QPushButton:hover {
-                background-color: #F0B540;
-            }
-        """)
-        exit_btn.setFixedWidth(85)
-        exit_btn.setFixedHeight(30)
-        exit_btn.move(10, 10)
-        exit_btn.clicked.connect(self.clean_exit)
-        
-        settings_btn = QPushButton("Настройки", self.admin_panel)
-        settings_btn.setStyleSheet("""
-            QPushButton {
                 background-color: #333;
-                color: white;
-                border: none;
-                padding: 5px;
                 border-radius: 3px;
-                font-size: 12px;
-            }
-            QPushButton:hover {
-                background-color: #444;
             }
         """)
-        settings_btn.setFixedWidth(85)
-        settings_btn.setFixedHeight(30)
-        settings_btn.move(10, 50)
-        settings_btn.clicked.connect(self.open_settings_window)
+        exit_btn.setFixedSize(40, 40)
+        exit_btn.setToolTip("Выйти из режима администратора")
+        exit_btn.clicked.connect(self.clean_exit)
+        main_layout.addWidget(exit_btn, alignment=Qt.AlignCenter)
+
+        self.admin_panel.setLayout(main_layout)
+
+        # Обработчики событий видимости
+        def showEvent(event):
+            enable_task_manager()
+            super(self.admin_panel.__class__, self.admin_panel).showEvent(event)
+        
+        def hideEvent(event):
+            disable_task_manager()
+            super(self.admin_panel.__class__, self.admin_panel).hideEvent(event)
+        
+        self.admin_panel.showEvent = showEvent
+        self.admin_panel.hideEvent = hideEvent
 
     def clean_exit(self):
         """Корректный выход из системы"""
-        enable_task_manager()
+        enable_task_manager()  # Убедимся, что диспетчер задач разблокирован
         from utils.win_tools import show_taskbar, start_explorer
         show_taskbar()
         start_explorer()
@@ -434,19 +620,65 @@ class MainWindow(QWidget):
         self.current_theme = "light" if self.current_theme == "dark" else "dark"
         self.app.setStyleSheet(load_stylesheet(self.current_theme))
 
+    def delete_selected_apps(self):
+        if not self.selected_apps:
+            QMessageBox.information(self, "Удаление", "Ничего не выбрано.")
+            return
+
+        from utils.helpers import delete_app_from_db
+        for app_name in self.selected_apps:
+            delete_app_from_db(app_name)
+
+        self.selected_apps.clear()
+        self.reload_apps_from_db()
+
+    def get_steam_shortcut_info(lnk_path):
+        """Извлекает информацию о Steam-игре из ярлыка"""
+        try:
+            import win32com.client
+            shell = win32com.client.Dispatch("WScript.Shell")
+            shortcut = shell.CreateShortCut(lnk_path)
+            
+            # Проверяем, что это Steam-ярлык
+            if "steam.exe" in shortcut.TargetPath.lower():
+                import re
+                # Извлекаем AppID из аргументов
+                match = re.search(r'-applaunch\s+(\d+)', shortcut.Arguments)
+                if match:
+                    return {
+                        'app_id': match.group(1),
+                        'name': shortcut.Description,
+                        'target': shortcut.TargetPath,
+                        'args': shortcut.Arguments
+                    }
+        except Exception as e:
+            print(f"Ошибка чтения ярлыка: {e}")
+        return None
+
     def reload_apps_from_db(self):
+        # Запоминаем текущую вкладку
+        current_index = self.stack.currentIndex()
+        
+        # Обновляем данные
         self.games, self.tools = load_apps_from_db()
         self.filtered_games = self.games.copy()
         self.filtered_apps = self.tools.copy()
 
+        # Удаляем старые виджеты
         while self.stack.count() > 0:
             widget = self.stack.widget(0)
             self.stack.removeWidget(widget)
             widget.deleteLater()
             
+        # Создаем новые страницы
         self.stack.addWidget(self.create_page(self.games, "Games"))
         self.stack.addWidget(self.create_page(self.tools, "Applications"))
-        self.stack.setCurrentIndex(0)
+        
+        # Восстанавливаем предыдущую вкладку, но не выходим за пределы количества вкладок
+        if current_index < self.stack.count():
+            self.stack.setCurrentIndex(current_index)
+        else:
+            self.stack.setCurrentIndex(0)
 
     def update_custom_tray_apps(self):
         known_tray_apps = {
