@@ -349,7 +349,7 @@ class LoginWindow(QWidget):
             f.write(username)
 
         self.close()
-        subprocess.run(["python", "main.py", username])
+        subprocess.run(["main.exe", username])
  
     def closeEvent(self, event):
         try:

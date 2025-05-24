@@ -1,0 +1,198 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Меню приложений</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+        }
+        .content {
+            padding: 20px;
+            flex: 1;
+        }
+        .app-list {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .app-item {
+            margin: 10px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            width: 200px;
+        }
+        .btn {
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin-top: 10px;
+        }
+        .btn-danger { background-color: red; }
+        .btn-warning { background-color: orange; }
+        .log-item { margin: 10px; }
+        .sidebar {
+            width: 350px;
+            background-color: #f4f4f4;
+            position: fixed;
+            right: 0;
+            top: 0;
+            height: 100vh;
+            padding: 20px;
+            border-left: 1px solid #ccc;
+        }
+        .sidebar h2 { margin-top: 0; }
+        .log-list {
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .tab-buttons {
+            margin-bottom: 20px;
+        }
+        .tab-buttons button {
+            padding: 10px 15px;
+            margin-right: 10px;
+        }
+        .time-balance
+        {
+            margin-top:300px;
+            margin-right: 600px;
+        }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+    </style>
+    <script>
+        function switchTab(tabName) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(tabName + '-tab').classList.add('active');
+        }
+
+        async function fetchApps() {
+            const res = await fetch('/api/apps');
+            const apps = await res.json();
+
+            const appsContainer = document.getElementById('apps-list');
+            const gamesContainer = document.getElementById('games-list');
+            appsContainer.innerHTML = '';
+            gamesContainer.innerHTML = '';
+
+            apps.forEach(app => {
+                const item = document.createElement('div');
+                item.className = 'app-item';
+                item.innerHTML = `
+                    <h3>${app.name}</h3>
+                    <p>Путь: ${app.path}</p>
+                    <a href="/run/${app.name}" class="btn">Запустить</a>
+                    <a href="/edit/${app.id}" class="btn btn-warning">Редактировать</a>
+                    <button class="btn btn-danger" onclick="deleteApp('${app.name}')">Удалить</button>
+                `;
+                if (app.type === 'game') {
+                    gamesContainer.appendChild(item);
+                } else {
+                    appsContainer.appendChild(item);
+                }
+            });
+        }
+
+        async function deleteApp(name) {
+            if (!confirm(`Удалить приложение ${name}?`)) return;
+
+            await fetch(`/delete/${name}`);
+            await fetchApps();
+        }
+
+        window.onload = () => {
+            switchTab('apps');
+            fetchApps();
+        };
+    </script>
+</head>
+<body>
+    <div class="content">
+        <h1>Меню приложений</h1>
+
+        <div class="tab-buttons">
+            <button onclick="switchTab('apps')">Приложения</button>
+            <button onclick="switchTab('games')">Игры</button>
+        </div>
+
+        <div id="apps-tab" class="tab-content">
+            <h2>Приложения</h2>
+            <div class="app-list" id="apps-list"></div>
+            <a href="{{ url_for('add_app') }}" class="btn">Добавить приложение</a>
+        </div>
+
+        <div id="games-tab" class="tab-content">
+            <h2>Игры</h2>
+            <div class="app-list" id="games-list"></div>
+            <a href="{{ url_for('add_app') }}" class="btn">Добавить игру</a>
+        </div>
+    </div>
+
+    <div class="time-balance">
+        <h3>Добавить время / баланс пользователю</h3>
+        <form id="credit-form">
+        <input type="text" name="username" placeholder="Имя пользователя" required>
+        <input type="number" name="seconds" placeholder="Время (секунды)">
+        <input type="number" name="amount" placeholder="Баланс (₽)">
+        <button type="submit">Добавить</button>
+        </form>
+
+        <p id="response-message" style="color: lightgreen;"></p>
+
+        <script>
+        document.getElementById('credit-form').addEventListener('submit', async function(e) {
+        e.preventDefault();
+
+        const form = e.target;
+        const username = form.username.value;
+        const seconds = parseInt(form.seconds.value || 0);
+        const amount = parseInt(form.amount.value || 0);
+
+        if (seconds > 0) {
+            await fetch('/api/add_time', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, seconds })
+            });
+        }
+
+        if (amount > 0) {
+            await fetch('/api/add_balance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, amount })
+            });
+        }
+
+        document.getElementById('response-message').textContent = 'Успешно добавлено!';
+        form.reset();
+        });
+        </script>
+
+    </div>
+
+    <div class="sidebar">
+        <h2>Логи запусков</h2>
+        <div class="log-list">
+            {% for log in logs %}
+                <div class="log-item">
+                    📅 {{ log.timestamp }} — 💻 {{ log.computer_name }} (IP: {{ log.ip_address }})<br>
+                    👤 Логин: {{ log.user }} запустил приложение: <strong>{{ log.app_name }}</strong>
+                </div>
+            {% else %}
+                <div>Нет записей</div>
+            {% endfor %}
+            <a href="{{ url_for('clear_logs') }}" class="btn">Очистить логи</a>
+        </div>
+    </div>
+</body>
+</html>
