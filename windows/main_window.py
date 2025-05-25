@@ -497,13 +497,8 @@ class MainWindow(QWidget):
     def init_admin_panel(self):
         """Инициализация панели администратора с иконками внизу"""
         self.admin_panel = QFrame(self)
-        self.admin_panel.setStyleSheet("""
-            QFrame {
-                background-color: #121212;
-                border: none;
-                border-radius: 0px;
-            }
-        """)
+        self.admin_panel.setObjectName("Admin_panel")
+        
         
         # Настройка тени
         shadow = QGraphicsDropShadowEffect()
@@ -520,13 +515,13 @@ class MainWindow(QWidget):
         self.admin_panel.move(0, topbar_height)
         self.admin_panel.hide()
 
-        # Основной контейнер с выравниванием вниз
+        
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(10, 10, 10, 20)
         main_layout.setSpacing(15)
         
        
-        # Делаем кнопку атрибутом класса
+    
         self.add_btn = AnimatedButton(self.admin_panel)
         self.add_btn.setToolTip("Добавить приложение")
         self.add_btn.setFixedSize(40, 40)
@@ -548,7 +543,7 @@ class MainWindow(QWidget):
         self.add_btn.clicked.connect(self.open_add_app_dialog)
         main_layout.addWidget(self.add_btn, alignment=Qt.AlignCenter)
 
-        # Кнопка удаления выделенных приложений (ПЕРЕМЕЩЕНА ВВЕРХ)
+        
         delete_btn = AnimatedButton(self.admin_panel)
         delete_btn.setToolTip("Удалить выбранные приложения")
         delete_btn.setFixedSize(40, 40)

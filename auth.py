@@ -349,13 +349,15 @@ class LoginWindow(QWidget):
             f.write(username)
 
         self.close()
-        subprocess.run(["main.exe", username])
+        subprocess.run(["python", "main.py", username])
  
     def closeEvent(self, event):
-        try:
-            subprocess.run(["taskkill", "/f", "/im", "main.py"], check=True)
-        except subprocess.CalledProcessError:
-            pass
+        enable_task_manager()
+        from utils.win_tools import show_taskbar, start_explorer
+        show_taskbar()
+        start_explorer()
+        
+        # Заменяем попытку убить процесс на обычное закрытие
         event.accept()
 
     def reset_auth_frame_style(self):
