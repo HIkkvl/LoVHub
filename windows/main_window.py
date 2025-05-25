@@ -66,9 +66,6 @@ class MainWindow(QWidget):
         force_fullscreen_work_area()
         disable_task_manager()
 
-        # Применяем масштаб ко всему приложению
-        self.app.setAttribute(Qt.AA_EnableHighDpiScaling)
-        self.app.setAttribute(Qt.AA_UseHighDpiPixmaps)
 
         self.setWindowTitle("Лаунчер")
         self.setStyleSheet(f"QPushButton {{ font-size: {int(16 * self.scale_factor)}px; }}")
@@ -148,7 +145,7 @@ class MainWindow(QWidget):
         self.close()
         
         # Запускаем окно авторизации
-        subprocess.Popen(["python", "auth.py"])
+        subprocess.Popen(["auth.exe"])
         
         # Завершаем текущее приложение
         self.app.quit()

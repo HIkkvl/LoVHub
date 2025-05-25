@@ -107,8 +107,9 @@ class AddAppDialog(QDialog):
         self.layout.addSpacing(20)
 
 
-        # Скрытая группа для выбора типа
+        # Группа для выбора типа
         self.type_group = QGroupBox("Тип приложения:")
+        self.type_group.setStyleSheet("QLabel {font-size: 14px;background: transparent;color: white;}")
         type_layout = QHBoxLayout()
 
         self.game_radio = QRadioButton("Игра")
@@ -118,7 +119,6 @@ class AddAppDialog(QDialog):
         type_layout.addWidget(self.game_radio)
         type_layout.addWidget(self.app_radio)
         self.type_group.setLayout(type_layout)
-        self.type_group.hide()
         self.layout.addWidget(self.type_group)
 
         # Кнопки

@@ -17,16 +17,34 @@ import subprocess
 
 
 class SettingsWindow(QWidget):
-    time_expired = pyqtSignal()  # Новый сигнал
+    time_expired = pyqtSignal()
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Popup)
         self.setObjectName("Settings")
         self.scale_factor = parent.scale_factor if parent else 1.0
         self.setFixedSize(int(450 * self.scale_factor), int(850 * self.scale_factor))
-        self.setContentsMargins(14,0,0,0)
-
-        layout = QVBoxLayout()
+        
+        # Основной контейнер для содержимого
+        self.container = QWidget(self)
+        self.container.setObjectName("SettingsContainer")
+        self.container.setGeometry(0, 0, self.width(), self.height())
+        
+    
+    
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(32) 
+        shadow.setXOffset(-15)    
+        shadow.setYOffset(0)      
+        shadow.setColor(QColor(0, 0, 0, 80))  
+        self.setGraphicsEffect(shadow)
+        
+       # self.setAttribute(Qt.WA_TranslucentBackground)
+        
+        # Основной layout теперь добавляем в контейнер
+        layout = QVBoxLayout(self.container)
+        layout.setContentsMargins(14, 0, 14, 14)
 
         # Секция приветствия
         hi_layout = QHBoxLayout()
@@ -445,23 +463,34 @@ class SettingsWindow(QWidget):
             return None
 
     def show_with_animation(self, target_pos):
-        start_x = target_pos.x() + self.width()
-        self.move(start_x, target_pos.y())
+        """Показывает окно с анимацией, прикрепляя к правому краю с тенью слева"""
+        # Получаем геометрию родительского окна
+        parent_rect = self.parent().geometry() if self.parent() else QApplication.desktop().screen().rect()
+        
+        # Позиционируем окно у правого края родительского окна
+        x_pos = parent_rect.right() - self.width()
+        y_pos = target_pos.y()
+        
+        # Начальная позиция для анимации - за пределами экрана справа
+        start_x = x_pos + self.width()
+        
+        self.move(start_x, y_pos)
         self.show()
 
         self.anim = QPropertyAnimation(self, b"geometry")
         self.anim.setDuration(300)
-        self.anim.setStartValue(QRect(start_x, target_pos.y(), self.width(), self.height()))
-        self.anim.setEndValue(QRect(target_pos.x(), target_pos.y(), self.width(), self.height()))
+        self.anim.setStartValue(QRect(start_x, y_pos, self.width(), self.height()))
+        self.anim.setEndValue(QRect(x_pos, y_pos, self.width(), self.height()))
         self.anim.start()
+
 
     def close_with_animation(self):
         if self.is_closing:
             return
         self.is_closing = True
 
-        screen_width = self.parent().width() if self.parent() else 1920
-        end_x = screen_width
+        # Конечная позиция - за пределами экрана справа
+        end_x = self.x() + self.width()
 
         self.anim = QPropertyAnimation(self, b"geometry")
         self.anim.setDuration(300)

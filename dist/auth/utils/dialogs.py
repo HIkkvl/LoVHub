@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import (
     QMessageBox, QGroupBox, QRadioButton,QSizePolicy
 )
 from PyQt5.QtCore import Qt, QPoint, QRect,QSize
+from PyQt5.QtGui import QIcon, QPixmap
 import os
 
 
@@ -12,6 +13,8 @@ class AddAppDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Add Games")
         self.setFixedSize(429, 748) 
+
+        self.selected_icon_path = None
         
         self.button_geometry = button_geometry if button_geometry else QRect()
         self.topbar_rect = topbar_rect if topbar_rect else QRect() 
@@ -103,8 +106,10 @@ class AddAppDialog(QDialog):
         self.layout.addLayout(path_layout)
         self.layout.addSpacing(20)
 
-        # Скрытая группа для выбора типа
+
+        # Группа для выбора типа
         self.type_group = QGroupBox("Тип приложения:")
+        self.type_group.setStyleSheet("QLabel {font-size: 14px;background: transparent;color: white;}")
         type_layout = QHBoxLayout()
 
         self.game_radio = QRadioButton("Игра")
@@ -114,7 +119,6 @@ class AddAppDialog(QDialog):
         type_layout.addWidget(self.game_radio)
         type_layout.addWidget(self.app_radio)
         self.type_group.setLayout(type_layout)
-        self.type_group.hide()
         self.layout.addWidget(self.type_group)
 
         # Кнопки
@@ -230,7 +234,13 @@ class AddAppDialog(QDialog):
         )
 
         if icon_path:
-            self.icon_input.setText(icon_path)
+            self.selected_icon_path = icon_path  
+
+
+            pixmap = QPixmap(icon_path).scaled(self.add_image_btn.size(), Qt.KeepAspectRatio, Qt.SmoothTransformation)
+            self.add_image_btn.setIcon(QIcon(pixmap))
+            self.add_image_btn.setIconSize(self.add_image_btn.size())
+            self.add_image_btn.setText("")  
 
     def validate_and_accept(self):
         if not self.name_input.text():
@@ -248,5 +258,5 @@ class AddAppDialog(QDialog):
             "name": self.name_input.text(),
             "type": "game" if self.game_radio.isChecked() else "app",
             "path": self.path_input.text(),
-            "icon": self.icon_input.text() or None
+            "icon": self.selected_icon_path
         }

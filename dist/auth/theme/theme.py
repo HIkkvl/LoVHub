@@ -28,9 +28,9 @@ def load_stylesheet(theme="dark"):
                 font-size: 16px;
                 border: none;
             }
-            QWidget#Settings
+            QWidget#SettingsContainer
             {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #212121, stop:1 #171717);
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #252017, stop:1 #0F0C06);
             }
             QWidget#timer
             {
@@ -41,6 +41,12 @@ def load_stylesheet(theme="dark"):
             QWidget#balance_box
             {
                 background: #121212;
+                border: none;
+                border-radius: 0px;
+            }
+            QFrame#Admin_panel
+            {
+                background-color: #121212;
                 border: none;
                 border-radius: 0px;
             }
@@ -73,7 +79,7 @@ def load_stylesheet(theme="dark"):
                 font-size: 16px;
                 border: none;
             }
-            QWidget#Setting
+            QWidget#SettingsContainer
             {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #BCBABA, stop:1 #A1A1A1);
             }
@@ -84,6 +90,12 @@ def load_stylesheet(theme="dark"):
                 border-radius: 0px;
             }
             QWidget#balance_box
+            {
+                background-color: #878686;
+                border: none;
+                border-radius: 0px;
+            }
+            QFrame#Admin_panel
             {
                 background-color: #878686;
                 border: none;
