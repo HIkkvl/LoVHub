@@ -1,13 +1,12 @@
 from PyQt5.QtWidgets import (
     QWidget, QLineEdit, QPushButton, QLabel, QToolButton,
-    QVBoxLayout, QHBoxLayout, QFrame
+    QVBoxLayout, QHBoxLayout, QFrame, QDialog
 )
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import Qt, QTimer, QSize, QTime, QDate
 from utils.helpers import AnimatedButton
 import win32api
 import locale
-from PyQt5.QtWidgets import QDialog
 
 class TopBar(QFrame):
     def __init__(self, main_window):
@@ -16,7 +15,7 @@ class TopBar(QFrame):
         self.main_window = main_window
         self.scale_factor = main_window.scale_factor
         self.setFixedSize(int(1920 * self.scale_factor), int(106 * self.scale_factor))
-        self.tray_expanded = False  # флаг состояния кастомного трея
+        self.tray_expanded = False
 
         self.setup_search()
         self.setup_buttons()
@@ -43,11 +42,7 @@ class TopBar(QFrame):
         search_icon.move(int(10 * self.scale_factor), int(10 * self.scale_factor))
         self.search_input.setTextMargins(int(50 * self.scale_factor), 0, 0, 0)
 
-
     def setup_buttons(self):
-        # Сначала создаем все кнопки, потом настраиваем их свойства
-        
-        # Кнопка "Games"
         self.games_btn = AnimatedButton(self)
         self.games_btn.setIcon(QIcon("images/games_icon.png"))
         self.games_btn.setIconSize(QSize(int(64 * self.scale_factor), int(64 * self.scale_factor)))
@@ -56,7 +51,6 @@ class TopBar(QFrame):
         self.games_btn.setStyleSheet("background: none; border: none;")
         self.games_btn.clicked.connect(lambda: self.main_window.switch_tab(0))
 
-        # Кнопка "Apps"
         self.apps_btn = AnimatedButton(self)
         self.apps_btn.setIcon(QIcon("images/apps_icon.png"))
         self.apps_btn.setIconSize(QSize(int(64 * self.scale_factor), int(64 * self.scale_factor)))
@@ -65,7 +59,6 @@ class TopBar(QFrame):
         self.apps_btn.setStyleSheet("background: none; border: none;")
         self.apps_btn.clicked.connect(lambda: self.main_window.switch_tab(1))
 
-        # Кнопка переключения трея
         self.tray_toggle_btn = QPushButton("˄", self)
         self.tray_toggle_btn.setFixedSize(int(30 * self.scale_factor), int(30 * self.scale_factor))
         self.tray_toggle_btn.move(int(1557 * self.scale_factor), int(40 * self.scale_factor))
@@ -83,7 +76,6 @@ class TopBar(QFrame):
         """)
         self.tray_toggle_btn.clicked.connect(self.toggle_custom_tray)
 
-        # Кнопка настроек (добавляем в самом конце)
         self.settings_btn = QPushButton(self)
         self.settings_btn.setIcon(QIcon("images/user_icon.png"))
         self.settings_btn.setIconSize(QSize(int(64 * self.scale_factor), int(64 * self.scale_factor)))
@@ -101,7 +93,6 @@ class TopBar(QFrame):
         self.custom_tray_layout = QHBoxLayout(self.custom_tray_widget)
         self.custom_tray_layout.setContentsMargins(5, 5, 5, 5)
         self.custom_tray_layout.setSpacing(10)
-
 
     def add_tray_icon(self, icon_path, tooltip, callback):
         btn = QPushButton()
@@ -129,13 +120,11 @@ class TopBar(QFrame):
             self.tray_toggle_btn.setText("˄")
         else:
             btn_global_pos = self.tray_toggle_btn.mapToGlobal(self.tray_toggle_btn.rect().bottomLeft())
-
             self.custom_tray_widget.move(btn_global_pos.x(), btn_global_pos.y() + 5)
             self.custom_tray_widget.show()
             self.tray_toggle_btn.setText("˅")
         
         self.tray_expanded = not self.tray_expanded
-
 
     def setup_clock(self):
         self.time_label = QLabel(self)

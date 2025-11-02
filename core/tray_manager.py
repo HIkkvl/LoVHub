@@ -4,7 +4,6 @@ from PyQt5.QtCore import Qt
 import psutil
 import os
 
-
 class TrayManager(QWidget):
     def __init__(self, tray_btn):
         super().__init__()
@@ -37,7 +36,6 @@ class TrayManager(QWidget):
         running = [p.name() for p in psutil.process_iter()]
         active_tray = [(name, icon) for name, icon in tray_apps.items() if name in running]
 
-        # Очистка layout
         while self.layout().count():
             item = self.layout().takeAt(0)
             widget = item.widget()

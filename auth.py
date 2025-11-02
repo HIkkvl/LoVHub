@@ -1,17 +1,14 @@
 import sys
 import sqlite3
+import sys
+import os
 import subprocess
-from PyQt5.QtWidgets import (QGraphicsBlurEffect, QGraphicsColorizeEffect, 
-                            QMessageBox, QDialog)
+from PyQt5.QtWidgets import (QMessageBox, QDialog, QApplication, QWidget, 
+                            QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, 
+                            QLabel, QFrame)
+from PyQt5.QtCore import Qt, QTimer, QSize
+from PyQt5.QtGui import QIcon, QPixmap
 from utils.helpers import AnimatedButton
-from PyQt5.QtCore import (QPropertyAnimation, QEasingCurve, QSize, Qt, 
-                         QRect, QEvent, QTimer, QTime, QDate)
-from PyQt5.QtGui import (QIcon, QPixmap, QKeySequence, QPainter, 
-                        QLinearGradient, QColor)
-from PyQt5.QtWidgets import (QApplication, QWidget, QPushButton, QVBoxLayout, 
-                            QHBoxLayout, QInputDialog, QLineEdit, QScrollArea, 
-                            QSizePolicy, QGridLayout, QLabel, QStackedWidget, 
-                            QShortcut, QAction, QFrame)
 from utils.win_tools import (hide_taskbar, kill_explorer, 
                            force_fullscreen_work_area, 
                            disable_task_manager, enable_task_manager)
@@ -50,93 +47,53 @@ class RegisterDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("Регистрация")
         self.setFixedSize(885, 468)
-        
-        # Убираем рамку и делаем окно модальным без кнопок управления
         self.setWindowFlags(Qt.Dialog | Qt.FramelessWindowHint)
         self.setModal(True)
         
-        # Центрируем окно относительно родителя
         if parent:
             parent_rect = parent.frameGeometry()
             self.move(parent_rect.center() - self.rect().center())
         
-        self.setStyleSheet("""
-            background:#212121;
-            color: white;
-            font-size: 18px;
-            border: none;
-            border-radius: 0px;
-        """)
+        self.setStyleSheet("background:#212121; color: white; font-size: 18px; border: none; border-radius: 0px;")
         
-        # Главный layout
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
         
-        # Topbar
         topbar = QWidget()
         topbar.setFixedSize(885, 80)
         topbar.setStyleSheet("background-color: #121212;")
         
-        # Лого в топбаре
         logo_label = QLabel(topbar)
         logo_label.setFixedSize(270, 150)
-        logo_label.move((885 - 270) // 2, -35)  # Центрируем по горизонтали и немного поднимаем
+        logo_label.move((885 - 270) // 2, -35)
         pixmap = QPixmap("images/logo.png")
         logo_label.setPixmap(pixmap.scaled(270, 150, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         logo_label.setAlignment(Qt.AlignCenter)
         
-        # Контентная область
         content_widget = QWidget()
         content_layout = QVBoxLayout(content_widget)
         content_layout.setContentsMargins(50, 30, 50, 50)
         content_layout.setSpacing(20)
 
         title_label = QLabel("Регистрация")
-        title_label.setStyleSheet("""
-            font-size: 20px; 
-            font-weight: bold; 
-            color: #FFFFFF; 
-            border:none; 
-            border-radius:0px;
-        """)
+        title_label.setStyleSheet("font-size: 20px; font-weight: bold; color: #FFFFFF; border:none; border-radius:0px;")
         title_label.setAlignment(Qt.AlignCenter)
         content_layout.addWidget(title_label)
         
         self.username_input = QLineEdit()
         self.username_input.setPlaceholderText("Логин")
-        self.username_input.setStyleSheet("""
-            background: #5B5B5B;
-            padding: 15px;
-            border: none;
-            font-size: 16px;
-            color: white;
-            border-radius:0px;
-        """)
+        self.username_input.setStyleSheet("background: #5B5B5B; padding: 15px; border: none; font-size: 16px; color: white; border-radius:0px;")
         
         self.password_input = QLineEdit()
         self.password_input.setPlaceholderText("Пароль")
         self.password_input.setEchoMode(QLineEdit.Password)
-        self.password_input.setStyleSheet("""
-            background: #5B5B5B;
-            padding: 15px;
-            border: none;
-            font-size: 16px;
-            color: white;
-            border-radius:0px;
-        """)
+        self.password_input.setStyleSheet("background: #5B5B5B; padding: 15px; border: none; font-size: 16px; color: white; border-radius:0px;")
         
         self.confirm_password_input = QLineEdit()
         self.confirm_password_input.setPlaceholderText("Подтвердите пароль")
         self.confirm_password_input.setEchoMode(QLineEdit.Password)
-        self.confirm_password_input.setStyleSheet("""
-            background: #5B5B5B;
-            padding: 15px;
-            border: none;
-            font-size: 16px;
-            color: white;
-            border-radius:0px;
-        """)
+        self.confirm_password_input.setStyleSheet("background: #5B5B5B; padding: 15px; border: none; font-size: 16px; color: white; border-radius:0px;")
         
         buttons_layout = QHBoxLayout()
         buttons_layout.setSpacing(20)
@@ -182,7 +139,6 @@ class RegisterDialog(QDialog):
         content_layout.addWidget(self.confirm_password_input)
         content_layout.addLayout(buttons_layout)
         
-        # Добавляем элементы в главный layout
         main_layout.addWidget(topbar)
         main_layout.addWidget(content_widget)
         
@@ -224,7 +180,6 @@ class LoginWindow(QWidget):
         force_fullscreen_work_area()
         disable_task_manager()
 
-        # Topbar
         topbar = QWidget()
         topbar.setFixedSize(1920,106)
         topbar.setStyleSheet("background-color: #121212;")
@@ -329,8 +284,6 @@ class LoginWindow(QWidget):
         main_layout.addWidget(topbar)
         main_layout.addLayout(auth_wrapper)
 
-        self._error_animation = None
-
     def show_register_dialog(self):
         dialog = RegisterDialog(self)
         dialog.exec_()
@@ -348,16 +301,19 @@ class LoginWindow(QWidget):
         with open("last_login.txt", "w") as f:
             f.write(username)
 
-        self.close()
-        subprocess.run(["main.exe", username])
+        self.destroy()
+        
+        # Запускаем main.py без ожидания
+        if sys.platform == "win32":
+            os.system(f"start py main.py {username}")
+        else:
+            os.system(f"python main.py {username} &")
  
     def closeEvent(self, event):
         enable_task_manager()
         from utils.win_tools import show_taskbar, start_explorer
         show_taskbar()
         start_explorer()
-        
-        # Заменяем попытку убить процесс на обычное закрытие
         event.accept()
 
     def reset_auth_frame_style(self):

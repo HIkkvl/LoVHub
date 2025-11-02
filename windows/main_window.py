@@ -48,16 +48,16 @@ class MainWindow(QWidget):
         screen = self.app.primaryScreen()
         screen_width = screen.size().width()
         
-        if screen_width >= 3840:  # 4K
+        if screen_width >= 3840:
             self.scale_factor = 2.0
-        elif screen_width >= 2560:  # 2K
+        elif screen_width >= 2560:
             self.scale_factor = 1.5
-        elif screen_width >= 1920:  # FullHD
+        elif screen_width >= 1920:
             self.scale_factor = 1.0
-        else:  # HD и меньше
+        else:
             self.scale_factor = 0.8
 
-        self._is_authenticated = True  # Флаг авторизации
+        self._is_authenticated = True
         self.current_theme = "dark"
         self.app.setStyleSheet(load_stylesheet(self.current_theme))
 
@@ -65,7 +65,6 @@ class MainWindow(QWidget):
         hide_taskbar()
         force_fullscreen_work_area()
         disable_task_manager()
-
 
         self.setWindowTitle("Лаунчер")
         self.setStyleSheet(f"QPushButton {{ font-size: {int(16 * self.scale_factor)}px; }}")
@@ -78,23 +77,19 @@ class MainWindow(QWidget):
 
         self.init_ui()
         self.init_timers()
-        self.init_settings_window()  
+        self.init_settings_window()
 
         self.settings_window.time_expired.connect(self.handle_time_expired)
         
-
         self.set_exit_hotkey()
         keyboard.add_hotkey('alt+shift', self.topbar.switch_language)
 
-        # Запуск таймеров
         QTimer.singleShot(2000, self.taskbar_worker.start)
 
     def closeEvent(self, event):
         event.ignore()
 
-
     def init_ui(self):
-        """Инициализация пользовательского интерфейса"""
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
@@ -113,7 +108,6 @@ class MainWindow(QWidget):
         self.showFullScreen()
 
     def init_timers(self):
-        """Инициализация таймеров"""
         self.taskbar_worker = TaskbarWorker()
         self.taskbar_worker.update_icons.connect(self.update_taskbar_icons)
 
@@ -130,29 +124,20 @@ class MainWindow(QWidget):
         self.reload_timer.start(10000)
 
     def init_settings_window(self):
-        """Инициализация окна настроек"""
         from windows.settings import SettingsWindow
         self.settings_window = SettingsWindow(self)
 
     def handle_time_expired(self):
-        """Обработчик завершения времени"""
         enable_task_manager()
         from utils.win_tools import show_taskbar, start_explorer
         show_taskbar()
         start_explorer()
         
-        # Закрываем текущее окно
         self.close()
-        
-        # Запускаем окно авторизации
         subprocess.Popen(["auth.exe"])
-        
-        # Завершаем текущее приложение
         self.app.quit()
-
         
     def open_settings_window(self):
-        """Управление отображением окна настроек"""
         if self.settings_open:
             self.settings_window.close_with_animation()
             self.settings_open = False
@@ -164,7 +149,6 @@ class MainWindow(QWidget):
             self.settings_open = True
 
     def create_page(self, items, title):
-        """Создает страницу с приложениями"""
         page_widget = QWidget()
         page_layout = QVBoxLayout(page_widget)
         page_layout.setAlignment(Qt.AlignTop)
@@ -198,13 +182,11 @@ class MainWindow(QWidget):
             btn = AnimatedButton()
             btn.setFixedSize(int(334 * self.scale_factor), int(447 * self.scale_factor))
 
-            # Контейнер для иконки и чекбокса
             container = QWidget()
             container_layout = QVBoxLayout(container)
             container_layout.setContentsMargins(0, 0, 0, 0)
             container_layout.setSpacing(0)
 
-            # Иконка
             icon_filename = app.get('icon', None)
             icon_exists = icon_filename and os.path.exists(f"static/icons/{icon_filename}")
             icon_path = f"static/icons/{icon_filename}" if icon_exists else "static/icons/default_icon.png"
@@ -301,10 +283,8 @@ class MainWindow(QWidget):
             btn.clicked.connect(lambda _, hwnd=hwnd: self.focus_and_toggle(hwnd))
             self.topbar.running_apps_container.addWidget(btn)
 
-
     def open_add_app_dialog(self):
         if not hasattr(self, 'add_btn'):
-            print("Warning: add_btn attribute not found in MainWindow when opening AddAppDialog. Using fallback geometry.")
             button_geometry = QRect(self.mapToGlobal(QPoint(10, 70)), QSize(40,40)) 
         else:
             button_global_pos = self.add_btn.mapToGlobal(QPoint(0, 0))
@@ -394,7 +374,6 @@ class MainWindow(QWidget):
             add_app_to_db(data["name"], data["path"], data["type"], icon_filename)
             
             self.reload_apps_from_db()
-
             
     def run_app(self, name, path):
         try:
@@ -411,7 +390,6 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Ошибка запуска", f"Не удалось запустить: {str(e)}")
 
     def run_steam_game(self, name, steam_url):
-        """Запускает игру через Steam, игнорируя ложные ошибки"""
         try:
             import subprocess
             import time
@@ -419,25 +397,22 @@ class MainWindow(QWidget):
             subprocess.Popen(["start", steam_url], shell=True)
             
             time.sleep(3)
-            
 
             game_running = self.check_if_game_running(name)
             if not game_running:
                 QMessageBox.warning(self, "Ошибка", "Игра не запустилась. Попробуйте еще раз.")
             
         except Exception as e:
-            print(f"[Steam] Ошибка запуска: {e}")
+            print(f"Ошибка запуска Steam: {e}")
 
     def check_if_game_running(self, name):
-        """Проверяет, запущен ли процесс игры (для Steam-игр)"""
         try:
             for proc in psutil.process_iter(['name']):
                 if name.lower() in proc.info['name'].lower():
                     return True
             return False
         except:
-            return False  
-
+            return False
 
     def on_app_launched(self, name, pid):
         self.running_procs.append((name, pid))
@@ -454,7 +429,6 @@ class MainWindow(QWidget):
     def toggle_hwnd(self, hwnd):
         try:
             if not win32gui.IsWindow(hwnd):
-                print(f"[DEBUG] hwnd {hwnd} больше не существует.")
                 return
 
             placement = win32gui.GetWindowPlacement(hwnd)
@@ -465,7 +439,7 @@ class MainWindow(QWidget):
 
             win32gui.SetForegroundWindow(hwnd)
         except Exception as e:
-            print(f"[ERROR] toggle_hwnd: {e}")
+            print(f"Ошибка переключения окна: {e}")
 
     def set_exit_hotkey(self):
         shortcut = QShortcut(QKeySequence("Ctrl+Alt+P"), self)
@@ -477,7 +451,6 @@ class MainWindow(QWidget):
             if not hasattr(self, 'admin_panel'):
                 self.init_admin_panel()
             
-            # Переключаем видимость панели
             if self.admin_panel.isVisible():
                 self.admin_panel.hide()
                 self.edit_mode = False
@@ -492,12 +465,9 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Ошибка", "Неверный пароль!")
 
     def init_admin_panel(self):
-        """Инициализация панели администратора с иконками внизу"""
         self.admin_panel = QFrame(self)
         self.admin_panel.setObjectName("Admin_panel")
         
-        
-        # Настройка тени
         shadow = QGraphicsDropShadowEffect()
         shadow.setBlurRadius(32.9)
         shadow.setXOffset(9)
@@ -512,13 +482,10 @@ class MainWindow(QWidget):
         self.admin_panel.move(0, topbar_height)
         self.admin_panel.hide()
 
-        
         main_layout = QVBoxLayout()
         main_layout.setContentsMargins(10, 10, 10, 20)
         main_layout.setSpacing(15)
         
-       
-    
         self.add_btn = AnimatedButton(self.admin_panel)
         self.add_btn.setToolTip("Добавить приложение")
         self.add_btn.setFixedSize(40, 40)
@@ -540,7 +507,6 @@ class MainWindow(QWidget):
         self.add_btn.clicked.connect(self.open_add_app_dialog)
         main_layout.addWidget(self.add_btn, alignment=Qt.AlignCenter)
 
-        
         delete_btn = AnimatedButton(self.admin_panel)
         delete_btn.setToolTip("Удалить выбранные приложения")
         delete_btn.setFixedSize(40, 40)
@@ -562,15 +528,12 @@ class MainWindow(QWidget):
         delete_btn.clicked.connect(self.delete_selected_apps)
         main_layout.addWidget(delete_btn, alignment=Qt.AlignCenter)
 
-        # Добавляем распорку, чтобы оставшиеся кнопки были внизу
         main_layout.addStretch()
 
-        # Кнопка диспетчера задач
         taskmgr_btn = AnimatedButton(self.admin_panel)
         taskmgr_icon_path = "images/taskmanager_icon.png"
         if os.path.exists(taskmgr_icon_path):
-            taskmgr_icon = QIcon(taskmgr_icon_path)
-            taskmgr_btn.setIcon(taskmgr_icon)
+            taskmgr_btn.setIcon(QIcon(taskmgr_icon_path))
             taskmgr_btn.setIconSize(QSize(32, 32))
         taskmgr_btn.setStyleSheet("""
             QPushButton {
@@ -588,12 +551,10 @@ class MainWindow(QWidget):
         taskmgr_btn.clicked.connect(lambda: subprocess.Popen("taskmgr", shell=True))
         main_layout.addWidget(taskmgr_btn, alignment=Qt.AlignCenter)
 
-        # Кнопка выхода
         exit_btn = AnimatedButton(self.admin_panel)
         exit_icon_path = "images/exit_icon.png"
         if os.path.exists(exit_icon_path):
-            exit_icon = QIcon(exit_icon_path)
-            exit_btn.setIcon(exit_icon)
+            exit_btn.setIcon(QIcon(exit_icon_path))
             exit_btn.setIconSize(QSize(32, 32))
         exit_btn.setStyleSheet("""
             QPushButton {
@@ -613,7 +574,6 @@ class MainWindow(QWidget):
 
         self.admin_panel.setLayout(main_layout)
 
-        # Обработчики событий видимости
         def showEvent(event):
             enable_task_manager()
             super(self.admin_panel.__class__, self.admin_panel).showEvent(event)
@@ -626,8 +586,7 @@ class MainWindow(QWidget):
         self.admin_panel.hideEvent = hideEvent
 
     def clean_exit(self):
-        """Корректный выход из системы"""
-        enable_task_manager()  # Убедимся, что диспетчер задач разблокирован
+        enable_task_manager()
         from utils.win_tools import show_taskbar, start_explorer
         show_taskbar()
         start_explorer()
@@ -643,7 +602,6 @@ class MainWindow(QWidget):
         if not search_text:
             if self.stack.count() == 3:
                 self.stack.removeWidget(self.stack.widget(2))
-            self.stack.setCurrentIndex(self.stack.currentIndex())
             return
 
         combined = self.games + self.tools
@@ -673,49 +631,21 @@ class MainWindow(QWidget):
         self.selected_apps.clear()
         self.reload_apps_from_db()
 
-    def get_steam_shortcut_info(lnk_path):
-        """Извлекает информацию о Steam-игре из ярлыка"""
-        try:
-            import win32com.client
-            shell = win32com.client.Dispatch("WScript.Shell")
-            shortcut = shell.CreateShortCut(lnk_path)
-            
-            # Проверяем, что это Steam-ярлык
-            if "steam.exe" in shortcut.TargetPath.lower():
-                import re
-                # Извлекаем AppID из аргументов
-                match = re.search(r'-applaunch\s+(\d+)', shortcut.Arguments)
-                if match:
-                    return {
-                        'app_id': match.group(1),
-                        'name': shortcut.Description,
-                        'target': shortcut.TargetPath,
-                        'args': shortcut.Arguments
-                    }
-        except Exception as e:
-            print(f"Ошибка чтения ярлыка: {e}")
-        return None
-
     def reload_apps_from_db(self):
-        # Запоминаем текущую вкладку
         current_index = self.stack.currentIndex()
         
-        # Обновляем данные
         self.games, self.tools = load_apps_from_db()
         self.filtered_games = self.games.copy()
         self.filtered_apps = self.tools.copy()
 
-        # Удаляем старые виджеты
         while self.stack.count() > 0:
             widget = self.stack.widget(0)
             self.stack.removeWidget(widget)
             widget.deleteLater()
             
-        # Создаем новые страницы
         self.stack.addWidget(self.create_page(self.games, "Games"))
         self.stack.addWidget(self.create_page(self.tools, "Applications"))
         
-        # Восстанавливаем предыдущую вкладку, но не выходим за пределы количества вкладок
         if current_index < self.stack.count():
             self.stack.setCurrentIndex(current_index)
         else:
