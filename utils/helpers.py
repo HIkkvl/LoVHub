@@ -2,6 +2,8 @@ from PyQt5.QtWidgets import QPushButton
 from PyQt5.QtGui import QIcon, QPixmap
 from PyQt5.QtCore import QSize, QRect, QPropertyAnimation, QEasingCurve
 import sqlite3
+import requests
+import json
 import os
 import uuid
 import pythoncom
@@ -135,46 +137,72 @@ def save_icon(file):
     return filename
 
 def load_apps_from_db():
-    db_path = "apps.db"
-    if not os.path.exists(db_path):
+    try:
+        # Мы используем API endpoint, который у тебя УЖЕ БЫЛ в server.py
+        response = requests.get("http://localhost:5000/api/apps", timeout=3)
+        response.raise_for_status() # Вызовет ошибку, если сервер ответил 4xx или 5xx
+        
+        apps_list = response.json()
+        
+        games = [app for app in apps_list if app.get("type") == "game"]
+        apps = [app for app in apps_list if app.get("type") == "app"]
+        
+        return games, apps
+    
+    except requests.exceptions.RequestException as e:
+        print(f"Ошибка: Не удалось загрузить приложения с сервера: {e}")
+        # Возвращаем пустые списки, чтобы интерфейс не "упал"
         return [], []
-    
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT id, name, path, type, icon FROM apps")  
-    rows = cursor.fetchall()
-    conn.close()
-    
-    games = [{"id": row[0], "name": row[1], "path": row[2], "type": row[3], "icon": row[4]} for row in rows if row[3] == "game"]
-    apps = [{"id": row[0], "name": row[1], "path": row[2], "type": row[3], "icon": row[4]} for row in rows if row[3] == "app"]
-    
-    return games, apps
 
 def add_app_to_db(name, path, category, icon=None):
+    """
+    ЗАМЕНЯЕТ старую функцию. 
+    Отправляет данные о новом приложении на сервер через API.
+    """
+    # 'icon' - это имя файла (например, 'uuid.png'), 
+    # которое вернула функция save_icon()
+    
+    payload = {
+        "name": name,
+        "path": path,
+        "type": category.lower(),
+        "icon": icon 
+    }
+    
     try:
-        db_path = "apps.db"
-        conn = sqlite3.connect(db_path)
-        cursor = conn.cursor()
+        # Используем новый API endpoint
+        response = requests.post("http://localhost:5000/api/add_app", json=payload, timeout=3)
+        response.raise_for_status()
         
-        # Приводим категорию к нижнему регистру и проверяем допустимые значения
-        category = category.lower()
-        if category not in ("game", "app"):
-            category = "app"  # значение по умолчанию
+        result = response.json()
+        if result.get("status") == "success":
+            print(f"Приложение '{name}' успешно добавлено через API.")
+        else:
+            print(f"Ошибка API при добавлении приложения: {result.get('message')}")
             
-        cursor.execute("INSERT INTO apps (name, path, type, icon) VALUES (?, ?, ?, ?)", 
-                      (name, path, category, icon))
-        conn.commit()
-    except sqlite3.Error as e:
-        print(f"Database error: {e}")
-    finally:
-        if conn:
-            conn.close()
+    except requests.exceptions.RequestException as e:
+        print(f"Ошибка: Не удалось добавить приложение через API: {e}")
+    except json.JSONDecodeError:
+        print(f"Ошибка: Некорректный ответ от сервера: {response.text}")
 
 
 def delete_app_from_db(app_name):
-    db_path = "apps.db"
-    conn = sqlite3.connect(db_path)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM apps WHERE name = ?", (app_name,))
-    conn.commit()
-    conn.close()
+    """
+    ЗАМЕНЯЕТ старую функцию.
+    Отправляет команду на удаление на сервер через API.
+    """
+    payload = {"name": app_name}
+    
+    try:
+        # Используем новый API endpoint
+        response = requests.post("http://localhost:5000/api/delete_app", json=payload, timeout=3)
+        response.raise_for_status()
+        
+        result = response.json()
+        if result.get("status") == "success":
+            print(f"Приложение '{app_name}' успешно удалено через API.")
+        else:
+            print(f"Ошибка API при удалении: {result.get('message')}")
+            
+    except requests.exceptions.RequestException as e:
+        print(f"Ошибка: Не удалось удалить приложение через API: {e}")

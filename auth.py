@@ -1,8 +1,7 @@
 import sys
-import sqlite3
-import sys
 import os
 import subprocess
+import requests
 from PyQt5.QtWidgets import (QMessageBox, QDialog, QApplication, QWidget, 
                             QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, 
                             QLabel, QFrame)
@@ -13,34 +12,7 @@ from utils.win_tools import (hide_taskbar, kill_explorer,
                            force_fullscreen_work_area, 
                            disable_task_manager, enable_task_manager)
 
-def create_users_table():
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    cursor.execute('''CREATE TABLE IF NOT EXISTS users (
-                      id INTEGER PRIMARY KEY AUTOINCREMENT,
-                      username TEXT NOT NULL UNIQUE,
-                      password TEXT NOT NULL)''')
-    conn.commit()
-    conn.close()
-
-def register_user(username, password):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    try:
-        cursor.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, password))
-        conn.commit()
-    except sqlite3.IntegrityError:
-        return False
-    conn.close()
-    return True
-
-def authenticate_user(username, password):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT password FROM users WHERE username = ?", (username,))
-    stored_password = cursor.fetchone()
-    conn.close()
-    return stored_password and stored_password[0] == password
+SERVER_URL = "http://192.168.100.15:5000"
 
 class RegisterDialog(QDialog):
     def __init__(self, parent=None):
@@ -145,27 +117,8 @@ class RegisterDialog(QDialog):
         self.setLayout(main_layout)
     
     def try_register(self):
-        username = self.username_input.text()
-        password = self.password_input.text()
-        confirm_password = self.confirm_password_input.text()
-        
-        if not username or not password:
-            QMessageBox.warning(self, "Ошибка", "Логин и пароль не могут быть пустыми!")
-            return
-            
-        if len(password) < 6:
-            QMessageBox.warning(self, "Ошибка", "Пароль должен содержать не менее 6 символов!")
-            return
-            
-        if password != confirm_password:
-            QMessageBox.warning(self, "Ошибка", "Пароли не совпадают!")
-            return
-            
-        if register_user(username, password):
-            QMessageBox.information(self, "Успех", "Регистрация успешна!")
-            self.accept()
-        else:
-            QMessageBox.warning(self, "Ошибка", "Логин уже существует!")
+        QMessageBox.warning(self, "Отключено", "Регистрация временно отключена. Обратитесь к администратору.")
+        self.reject()
 
 
 class LoginWindow(QWidget):
@@ -175,6 +128,7 @@ class LoginWindow(QWidget):
         self.setStyleSheet("background:#212121; color: white; font-size: 18px; border: none;")
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.showFullScreen()
+        
         hide_taskbar()
         kill_explorer()
         force_fullscreen_work_area()
@@ -291,11 +245,36 @@ class LoginWindow(QWidget):
     def login(self):
         username = self.username_input.text()
         password = self.password_input.text()
-        if authenticate_user(username, password):
-            self.accepted_login(username)
-        else:
-            self.auth_frame.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #AA2525, stop:1 #1B1B1B); border-radius: 0px; border:none;")
-            QTimer.singleShot(500, self.reset_auth_frame_style)
+        
+        payload = {
+            "username": username,
+            "password": password
+        }
+        
+        try:
+            response = requests.post(f"{SERVER_URL}/api/login", json=payload, timeout=3)
+            
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("status") == "success":
+                    self.accepted_login(username)
+                else:
+                    self.fail_login()
+                    
+            elif response.status_code == 401:
+                self.fail_login()
+            
+            else:
+                QMessageBox.warning(self, "Ошибка сервера", f"Не удалось войти: {response.text}")
+
+        except requests.exceptions.ConnectionError:
+            QMessageBox.critical(self, "Ошибка сети", f"Не удалось подключиться к серверу {SERVER_URL}.\nПроверьте сеть и брандмауэр.")
+        except Exception as e:
+            QMessageBox.critical(self, "Критическая ошибка", str(e))
+            
+    def fail_login(self):
+        self.auth_frame.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #AA2525, stop:1 #1B1B1B); border-radius: 0px; border:none;")
+        QTimer.singleShot(500, self.reset_auth_frame_style)
 
     def accepted_login(self, username):
         with open("last_login.txt", "w") as f:
@@ -303,7 +282,6 @@ class LoginWindow(QWidget):
 
         self.destroy()
         
-        # Запускаем main.py без ожидания
         if sys.platform == "win32":
             os.system(f"start py main.py {username}")
         else:
@@ -320,7 +298,6 @@ class LoginWindow(QWidget):
         self.auth_frame.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #EAA21B, stop:1 #212121); border-radius: 0px; border:none;")
 
 if __name__ == "__main__":
-    create_users_table()
     app = QApplication(sys.argv)
     login_win = LoginWindow()
     login_win.show()

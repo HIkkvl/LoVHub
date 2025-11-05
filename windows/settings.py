@@ -1,4 +1,3 @@
-import sqlite3
 import psutil
 import getpass
 import os
@@ -9,6 +8,7 @@ from PyQt5.QtGui import QColor, QIntValidator, QIcon
 from PyQt5.QtCore import Qt, QPropertyAnimation, QRect, QEvent, QSize, QTimer, pyqtSignal
 from utils.helpers import AnimatedButton
 from datetime import timedelta
+from utils.workers import StatusWorker, SyncTimeWorker, BuyPackageWorker, TopUpBalanceWorker 
 
 class SettingsWindow(QWidget):
     time_expired = pyqtSignal()
@@ -40,7 +40,10 @@ class SettingsWindow(QWidget):
 
         username = self.get_logged_in_username()
         self.username = username
-        self.time_left_seconds = self.get_time_left_from_db(username)
+        
+        self.time_left_seconds = 0
+        self.balance = 0
+        self.workers = [] 
         
         username_label = QLabel(username if username else "Guest")
         username_label.setStyleSheet("font-size: 44px; margin-left: 4px; margin-top: 20px; background:none;")
@@ -85,47 +88,49 @@ class SettingsWindow(QWidget):
         row1_layout = QHBoxLayout()
         row1_layout.setSpacing(10)
         
-        pkg1_btn = AnimatedButton("30 мин\n150 тг")
-        pkg1_btn.setFixedSize(120, 80)
-        pkg1_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
-        pkg1_btn.clicked.connect(lambda: self.buy_time_package(1800, 150))
-        row1_layout.addWidget(pkg1_btn)
+        self.pkg1_btn = AnimatedButton("30 мин\n150 тг")
+        self.pkg1_btn.setFixedSize(120, 80)
+        self.pkg1_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
+        self.pkg1_btn.clicked.connect(lambda: self.buy_time_package(1800, 150))
+        row1_layout.addWidget(self.pkg1_btn)
         
-        pkg2_btn = AnimatedButton("1 час\n350тг")
-        pkg2_btn.setFixedSize(120, 80)
-        pkg2_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
-        pkg2_btn.clicked.connect(lambda: self.buy_time_package(3600, 350))
-        row1_layout.addWidget(pkg2_btn)
+        self.pkg2_btn = AnimatedButton("1 час\n350тг")
+        self.pkg2_btn.setFixedSize(120, 80)
+        self.pkg2_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
+        self.pkg2_btn.clicked.connect(lambda: self.buy_time_package(3600, 350))
+        row1_layout.addWidget(self.pkg2_btn)
         
-        pkg3_btn = AnimatedButton("2 часа\n700 тг")
-        pkg3_btn.setFixedSize(120, 80)
-        pkg3_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
-        pkg3_btn.clicked.connect(lambda: self.buy_time_package(7200, 150))
-        row1_layout.addWidget(pkg3_btn)
+        self.pkg3_btn = AnimatedButton("2 часа\n700 тг")
+        self.pkg3_btn.setFixedSize(120, 80)
+        self.pkg3_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
+        self.pkg3_btn.clicked.connect(lambda: self.buy_time_package(7200, 700)) # Исправлена цена
+        row1_layout.addWidget(self.pkg3_btn)
         
         packages_layout.addLayout(row1_layout)
         
         row2_layout = QHBoxLayout()
         row2_layout.setSpacing(10)
         
-        pkg4_btn = AnimatedButton("3 часа\n1000 тг")
-        pkg4_btn.setFixedSize(120, 80)
-        pkg4_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
-        pkg4_btn.clicked.connect(lambda: self.buy_time_package(10800, 200))
-        row2_layout.addWidget(pkg4_btn)
+        self.pkg4_btn = AnimatedButton("3 часа\n1000 тг")
+        self.pkg4_btn.setFixedSize(120, 80)
+        self.pkg4_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
+        self.pkg4_btn.clicked.connect(lambda: self.buy_time_package(10800, 1000)) # Исправлена цена
+        row2_layout.addWidget(self.pkg4_btn)
         
-        pkg5_btn = AnimatedButton("5 часов\n2000 тг")
-        pkg5_btn.setFixedSize(120, 80)
-        pkg5_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
-        pkg5_btn.clicked.connect(lambda: self.buy_time_package(18000, 2000))
-        row2_layout.addWidget(pkg5_btn)
+        self.pkg5_btn = AnimatedButton("5 часов\n2000 тг")
+        self.pkg5_btn.setFixedSize(120, 80)
+        self.pkg5_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
+        self.pkg5_btn.clicked.connect(lambda: self.buy_time_package(18000, 2000))
+        row2_layout.addWidget(self.pkg5_btn)
         
-        pkg6_btn = AnimatedButton("10 часов\n3500 тг")
-        pkg6_btn.setFixedSize(120, 80)
-        pkg6_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
-        pkg6_btn.clicked.connect(lambda: self.buy_time_package(36000, 3500))
-        row2_layout.addWidget(pkg6_btn)
+        self.pkg6_btn = AnimatedButton("10 часов\n3500 тг")
+        self.pkg6_btn.setFixedSize(120, 80)
+        self.pkg6_btn.setStyleSheet("QPushButton { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #473E2D); color: white; border-radius: 5px; font-size: 16px; }")
+        self.pkg6_btn.clicked.connect(lambda: self.buy_time_package(36000, 3500))
+        row2_layout.addWidget(self.pkg6_btn)
         
+        self.all_pkg_buttons = [self.pkg1_btn, self.pkg2_btn, self.pkg3_btn, self.pkg4_btn, self.pkg5_btn, self.pkg6_btn]
+
         packages_layout.addLayout(row2_layout)
         layout.addLayout(packages_layout)
         layout.addSpacing(20)
@@ -134,7 +139,6 @@ class SettingsWindow(QWidget):
         bottom_layout.setContentsMargins(23, 0, 0, 14)
         bottom_layout.setSpacing(6)
 
-        self.balance = self.get_balance_from_db(username)
         balance_box = QWidget()
         balance_box.setObjectName("balance_box")
         balance_box.setFixedSize(206, 50)
@@ -180,6 +184,7 @@ class SettingsWindow(QWidget):
         
         if username:
             self.start_timers()
+            self.update_status_from_server()
 
     def show_topup_dialog(self, event):
         if not self.username:
@@ -201,6 +206,7 @@ class SettingsWindow(QWidget):
         buttons_layout = QHBoxLayout()
         ok_btn = QPushButton("Пополнить")
         ok_btn.setStyleSheet("QPushButton { background-color: #4CAF50; color: white; border: none; padding: 8px; font-size: 14px; } QPushButton:hover { background-color: #45a049; }")
+        
         ok_btn.clicked.connect(lambda: self.topup_balance(dialog))
         
         cancel_btn = QPushButton("Отмена")
@@ -228,14 +234,34 @@ class SettingsWindow(QWidget):
             if amount <= 0:
                 QMessageBox.warning(self, "Ошибка", "Сумма должна быть положительной")
                 return
-                
-            self.balance += amount
-            self.balance_label.setText(f"{self.balance} тг")
-            self.update_balance_in_db(self.username, self.balance)
-            QMessageBox.information(self, "Успешно", f"Баланс пополнен на {amount} тг")
+
+            print(f"Запускаем TopUpBalanceWorker на {amount} тг...")
+
             dialog.accept()
+
+            worker = TopUpBalanceWorker(self.username, amount)
+            worker.finished.connect(self.on_balance_topped_up)
+            worker.error.connect(self.on_top_up_error)
+            
+            self.workers.append(worker) 
+            worker.finished.connect(lambda: self.workers.remove(worker))
+            worker.error.connect(lambda: self.workers.remove(worker))
+            
+            worker.start()
+
         except ValueError:
             QMessageBox.warning(self, "Ошибка", "Введите корректную сумму")
+
+    def on_balance_topped_up(self, new_balance):
+        print(f"Баланс успешно пополнен. Новый баланс: {new_balance}")
+        self.balance = new_balance
+        self.balance_label.setText(f"{self.balance} тг")
+        QMessageBox.information(self, "Успешно", f"Баланс пополнен!")
+
+    def on_top_up_error(self, error_message):
+        print(f"Ошибка пополнения баланса: {error_message}")
+        QMessageBox.warning(self, "Ошибка", f"Не удалось пополнить баланс:\n{error_message}")
+        self.update_status_from_server() 
 
     def buy_time_package(self, seconds, price):
         if not self.username:
@@ -245,64 +271,102 @@ class SettingsWindow(QWidget):
         if self.balance < price:
             QMessageBox.warning(self, "Ошибка", "Недостаточно средств на балансе")
             return
-            
-        self.balance -= price
-        self.time_left_seconds += seconds
         
-        self.balance_label.setText(f"{self.balance} ₽")
+        self.set_package_buttons_enabled(False)
+        
+        worker = BuyPackageWorker(self.username, seconds, price)
+        worker.finished.connect(self.on_package_bought)
+        worker.error.connect(self.on_package_buy_error)
+        
+        self.workers.append(worker)
+        worker.finished.connect(lambda: self.workers.remove(worker))
+        worker.error.connect(lambda: self.workers.remove(worker))
+        
+        worker.start()
+
+    def on_package_bought(self, new_balance, new_time):
+        self.balance = new_balance
+        self.time_left_seconds = new_time
+        
+        self.balance_label.setText(f"{self.balance} тг")
         self.time_label.setText(self.seconds_to_time_str(self.time_left_seconds))
-        
-        self.update_balance_in_db(self.username, self.balance)
-        self.update_time_left_in_db(self.username, self.time_left_seconds)
         
         if not self.timer.isActive() and self.time_left_seconds > 0:
             self.timer.start(1000)
             
-        QMessageBox.information(self, "Успешно", f"Пакет времени приобретен! Добавлено {seconds//60} минут")
+        QMessageBox.information(self, "Успешно", "Пакет времени приобретен!")
+        self.set_package_buttons_enabled(True)
+
+    def on_package_buy_error(self, error_message):
+        QMessageBox.warning(self, "Ошибка", f"Не удалось купить пакет:\n{error_message}")
+        self.set_package_buttons_enabled(True)
+        self.sync_with_database()
+
+    def set_package_buttons_enabled(self, enabled):
+        for btn in self.all_pkg_buttons:
+            btn.setEnabled(enabled)
+            btn.setStyleSheet(btn.styleSheet() + f" opacity: {1.0 if enabled else 0.5};")
 
     def start_timers(self):
-        if not self.timer.isActive():
-            self.timer.start(1000)
+        # НЕ запускаем self.timer (секундный таймер) здесь.
+        # Его запустит on_status_loaded, когда получит время > 0
         
         if not self.sync_timer.isActive():
-            self.sync_timer.start(3000)
+            self.sync_timer.start(5000) # 5 секунд
 
     def sync_with_database(self):
-        new_time = self.get_time_left_from_db(self.username)
-        if new_time is not None and new_time != self.time_left_seconds:
-            self.time_left_seconds = new_time
-            self.time_label.setText(self.seconds_to_time_str(self.time_left_seconds))
+        self.update_status_from_server() 
+        
+        try:
+            worker = SyncTimeWorker(self.username, self.time_left_seconds)
+            worker.error.connect(lambda e: print(f"Ошибка фоновой синхронизации: {e}"))
+            
+            self.workers.append(worker)
+            worker.finished.connect(lambda: self.workers.remove(worker))
+            worker.error.connect(lambda: self.workers.remove(worker))
+            
+            worker.start()
+        except Exception as e:
+            print(f"Ошибка запуска SyncTimeWorker: {e}")
 
+    def update_status_from_server(self):
+        if not self.username:
+            return
+            
+        worker = StatusWorker(self.username)
+        worker.finished.connect(self.on_status_loaded)
+        worker.error.connect(self.on_status_error)
+        
+        self.workers.append(worker)
+        worker.finished.connect(lambda: self.workers.remove(worker))
+        worker.error.connect(lambda: self.workers.remove(worker))
+        
+        worker.start()
+
+    def on_status_loaded(self, balance, time_left):
+        if balance != self.balance:
+            self.balance = balance
+            self.balance_label.setText(f"{self.balance} тг")
+
+        if time_left != self.time_left_seconds:
+            self.time_left_seconds = time_left
+            self.time_label.setText(self.seconds_to_time_str(self.time_left_seconds))
+            
             if self.time_left_seconds > 0 and not self.timer.isActive():
                 self.timer.start(1000)
-
-        new_balance = self.get_balance_from_db(self.username)
-        if new_balance is not None and new_balance != self.balance:
-            self.balance = new_balance
-            self.balance_label.setText(f"{self.balance} ₽")
+    
+    def on_status_error(self, error_message):
+        print(f"Ошибка загрузки статуса: {error_message}")
 
     def seconds_to_time_str(self, seconds):
         if seconds is None:
             seconds = 0
         return str(timedelta(seconds=max(0, seconds)))
 
-    def get_time_left_from_db(self, username):
-        try:
-            conn = sqlite3.connect("users.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT time_left FROM users WHERE username = ?", (username,))
-            result = cursor.fetchone()
-            conn.close()
-            return result[0] if result and result[0] is not None else 0
-        except Exception as e:
-            print("Ошибка при получении времени:", e)
-            return 0
-
     def update_timer(self):
         if self.time_left_seconds > 0:
             self.time_left_seconds -= 1
             self.time_label.setText(self.seconds_to_time_str(self.time_left_seconds))
-            self.update_time_left_in_db(self.username, self.time_left_seconds)
             
             if self.time_left_seconds == 300: 
                 self.show_time_warning("Осталось 5 минут!")
@@ -316,16 +380,6 @@ class SettingsWindow(QWidget):
         if self.parent():
             QMessageBox.warning(self.parent(), "Внимание", message)
 
-    def update_time_left_in_db(self, username, seconds):
-        try:
-            conn = sqlite3.connect("users.db")
-            cursor = conn.cursor()
-            cursor.execute("UPDATE users SET time_left = ? WHERE username = ?", (seconds, username))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            print("DB write error:", e)
-
     def get_logged_in_username(self):
         try:
             with open("last_login.txt", "r") as f:
@@ -335,6 +389,8 @@ class SettingsWindow(QWidget):
             return None
 
     def show_with_animation(self, target_pos):
+        self.update_status_from_server()
+
         parent_rect = self.parent().geometry() if self.parent() else QApplication.desktop().screen().rect()
         
         x_pos = parent_rect.right() - self.width()
@@ -397,25 +453,3 @@ class SettingsWindow(QWidget):
     def change_theme(self):
         if self.parent():
             self.parent().toggle_theme()
-
-    def get_balance_from_db(self, username):
-        try:
-            conn = sqlite3.connect("users.db")
-            cursor = conn.cursor()
-            cursor.execute("SELECT balance FROM users WHERE username = ?", (username,))
-            result = cursor.fetchone()
-            conn.close()
-            return result[0] if result else 0
-        except Exception as e:
-            print("Ошибка при получении баланса:", e)
-            return 0
-
-    def update_balance_in_db(self, username, new_balance):
-        try:
-            conn = sqlite3.connect("users.db")
-            cursor = conn.cursor()
-            cursor.execute("UPDATE users SET balance = ? WHERE username = ?", (new_balance, username))
-            conn.commit()
-            conn.close()
-        except Exception as e:
-            print("Ошибка при обновлении баланса:", e)

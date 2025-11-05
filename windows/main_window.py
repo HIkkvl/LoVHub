@@ -10,10 +10,11 @@ from core.taskbar_worker import TaskbarWorker
 from utils.win_tools import (hide_taskbar, kill_explorer, 
                             force_fullscreen_work_area, 
                             disable_task_manager, enable_task_manager)
-from utils.helpers import parse_steam_url_shortcut, parse_windows_shortcut
-from utils.helpers import load_apps_from_db, AnimatedButton
+from utils.helpers import parse_steam_url_shortcut, parse_windows_shortcut, AnimatedButton
 from utils.dialogs import AddAppDialog
 from utils.network import send_app_launch_info
+from utils.workers import LoadAppsWorker, AddAppWorker, DeleteAppsWorker
+
 import win32gui
 import win32con
 import keyboard
@@ -69,7 +70,11 @@ class MainWindow(QWidget):
         self.setWindowTitle("Лаунчер")
         self.setStyleSheet(f"QPushButton {{ font-size: {int(16 * self.scale_factor)}px; }}")
 
-        self.games, self.tools = load_apps_from_db()
+        self.games = []
+        self.tools = []
+        self.app_load_worker = None
+        self.workers = []
+        
         self.running_procs = []
         self.filtered_games = self.games.copy()
         self.filtered_apps = self.tools.copy()
@@ -86,6 +91,8 @@ class MainWindow(QWidget):
 
         QTimer.singleShot(2000, self.taskbar_worker.start)
 
+        self.reload_apps_from_db()
+
     def closeEvent(self, event):
         event.ignore()
 
@@ -99,8 +106,9 @@ class MainWindow(QWidget):
         main_layout.addWidget(self.topbar)
 
         self.stack = QStackedWidget()
-        self.stack.addWidget(self.create_page(self.games, "Games"))
-        self.stack.addWidget(self.create_page(self.tools, "Applications"))
+        self.stack.addWidget(QWidget())
+        self.stack.addWidget(QWidget())
+        
         main_layout.addWidget(self.stack)
         self.stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
@@ -134,7 +142,7 @@ class MainWindow(QWidget):
         start_explorer()
         
         self.close()
-        subprocess.Popen(["auth.exe"])
+        subprocess.Popen(["py", "auth.py"])
         self.app.quit()
         
     def open_settings_window(self):
@@ -178,68 +186,72 @@ class MainWindow(QWidget):
         scroll_layout.addLayout(apps_layout)
 
         row, col, max_columns = 0, 0, 4
-        for app in items:
-            btn = AnimatedButton()
-            btn.setFixedSize(int(334 * self.scale_factor), int(447 * self.scale_factor))
+        
+        if not items:
+             pass 
+        else:
+            for app in items:
+                btn = AnimatedButton()
+                btn.setFixedSize(int(334 * self.scale_factor), int(447 * self.scale_factor))
 
-            container = QWidget()
-            container_layout = QVBoxLayout(container)
-            container_layout.setContentsMargins(0, 0, 0, 0)
-            container_layout.setSpacing(0)
+                container = QWidget()
+                container_layout = QVBoxLayout(container)
+                container_layout.setContentsMargins(0, 0, 0, 0)
+                container_layout.setSpacing(0)
 
-            icon_filename = app.get('icon', None)
-            icon_exists = icon_filename and os.path.exists(f"static/icons/{icon_filename}")
-            icon_path = f"static/icons/{icon_filename}" if icon_exists else "static/icons/default_icon.png"
+                icon_filename = app.get('icon', None)
+                icon_exists = icon_filename and os.path.exists(f"static/icons/{icon_filename}")
+                icon_path = f"static/icons/{icon_filename}" if icon_exists else "static/icons/default_icon.png"
 
-            if os.path.exists(icon_path):
-                pixmap = QPixmap(icon_path).scaled(int(334 * self.scale_factor), int(447 * self.scale_factor), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
-                rounded = rounded_pixmap(pixmap, 12)
-                btn.setIcon(QIcon(rounded))
-                btn.setIconSize(QSize(334, 447))
+                if os.path.exists(icon_path):
+                    pixmap = QPixmap(icon_path).scaled(int(334 * self.scale_factor), int(447 * self.scale_factor), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+                    rounded = rounded_pixmap(pixmap, 12)
+                    btn.setIcon(QIcon(rounded))
+                    btn.setIconSize(QSize(334, 447))
 
-            btn.setStyleSheet(f"""
-                QPushButton {{
-                    color: {'transparent' if icon_exists else 'white'};
-                    border: none;
-                    border-radius: 12px;
-                    font-size: 20px;
-                    text-align: center;
-                    background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #212121);
-                }}
-                QPushButton:hover {{
-                    background-color: #EAA21B;
-                }}
-            """)
+                btn.setStyleSheet(f"""
+                    QPushButton {{
+                        color: {'transparent' if icon_exists else 'white'};
+                        border: none;
+                        border-radius: 12px;
+                        font-size: 20px;
+                        text-align: center;
+                        background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #212121);
+                    }}
+                    QPushButton:hover {{
+                        background-color: #EAA21B;
+                    }}
+                """)
 
-            if self.edit_mode:
-                checkbox = QCheckBox()
-                checkbox.setChecked(app["name"] in self.selected_apps)
-                checkbox.setStyleSheet("QCheckBox::indicator { width: 24px; height: 24px; }")
-                
-                container_layout.addWidget(checkbox, alignment=Qt.AlignTop | Qt.AlignRight)
-                
-                def on_checkbox_clicked(state, app_name=app["name"]):
-                    if state:
-                        self.selected_apps.add(app_name)
-                    else:
-                        self.selected_apps.discard(app_name)
-                
-                checkbox.stateChanged.connect(on_checkbox_clicked)
-                
-                def on_button_clicked():
-                    checkbox.setChecked(not checkbox.isChecked())
-                
-                btn.clicked.connect(on_button_clicked)
-            else:
-                btn.clicked.connect(lambda _, n=app["name"], p=app["path"]: self.run_app(n, p))
+                if self.edit_mode:
+                    checkbox = QCheckBox()
+                    checkbox.setChecked(app["name"] in self.selected_apps)
+                    checkbox.setStyleSheet("QCheckBox::indicator { width: 24px; height: 24px; }")
+                    
+                    container_layout.addWidget(checkbox, alignment=Qt.AlignTop | Qt.AlignRight)
+                    
+                    def on_checkbox_clicked(state, app_name=app["name"]):
+                        if state:
+                            self.selected_apps.add(app_name)
+                        else:
+                            self.selected_apps.discard(app_name)
+                    
+                    checkbox.stateChanged.connect(on_checkbox_clicked)
+                    
+                    def on_button_clicked():
+                        checkbox.setChecked(not checkbox.isChecked())
+                    
+                    btn.clicked.connect(on_button_clicked)
+                else:
+                    btn.clicked.connect(lambda _, n=app["name"], p=app["path"]: self.run_app(n, p))
 
-            btn.setLayout(container_layout)
-            apps_layout.addWidget(btn, row, col)
+                btn.setLayout(container_layout)
+                apps_layout.addWidget(btn, row, col)
 
-            col += 1
-            if col >= max_columns:
-                col = 0
-                row += 1
+                col += 1
+                if col >= max_columns:
+                    col = 0
+                    row += 1
 
         scroll_area.setWidget(scroll_content)
         page_layout.addWidget(scroll_area)
@@ -370,10 +382,31 @@ class MainWindow(QWidget):
                 except Exception as e:
                     QMessageBox.warning(self, "Ошибка", f"Не удалось сохранить иконку: {e}")
             
-            from utils.helpers import add_app_to_db
-            add_app_to_db(data["name"], data["path"], data["type"], icon_filename)
+            print(f"Запускаем AddAppWorker для {data['name']}...")
+            worker = AddAppWorker(
+                data["name"], 
+                data["path"], 
+                data["type"], 
+                icon_filename
+            )
             
-            self.reload_apps_from_db()
+            worker.finished.connect(self.on_app_added)
+            worker.error.connect(self.on_app_add_error)
+            
+            self.workers.append(worker)
+            worker.finished.connect(lambda: self.workers.remove(worker))
+            worker.error.connect(lambda: self.workers.remove(worker))
+            
+            worker.start()
+
+    def on_app_added(self, app_name):
+        print(f"Приложение '{app_name}' успешно добавлено.")
+        QMessageBox.information(self, "Успех", f"Приложение '{app_name}' добавлено.")
+        self.reload_apps_from_db()
+
+    def on_app_add_error(self, error_message):
+        print(f"Ошибка добавления приложения: {error_message}")
+        QMessageBox.warning(self, "Ошибка", f"Не удалось добавить приложение:\n{error_message}")
             
     def run_app(self, name, path):
         try:
@@ -623,18 +656,56 @@ class MainWindow(QWidget):
         if not self.selected_apps:
             QMessageBox.information(self, "Удаление", "Ничего не выбрано.")
             return
+            
+        app_list = list(self.selected_apps)
+        print(f"Запускаем DeleteAppsWorker для {len(app_list)} приложений...")
+        
+        worker = DeleteAppsWorker(app_list)
+        worker.finished.connect(self.on_apps_deleted)
+        worker.error.connect(self.on_apps_delete_error)
+        
+        self.workers.append(worker)
+        worker.finished.connect(lambda: self.workers.remove(worker))
+        worker.error.connect(lambda: self.workers.remove(worker))
+        
+        worker.start()
 
-        from utils.helpers import delete_app_from_db
-        for app_name in self.selected_apps:
-            delete_app_from_db(app_name)
-
+    def on_apps_deleted(self, deleted_list, failed_list):
+        print(f"Удалено: {len(deleted_list)}, Ошибки: {len(failed_list)}")
+        
+        if failed_list:
+            QMessageBox.warning(self, "Ошибка", f"Не удалось удалить: {', '.join(failed_list)}")
+        else:
+            QMessageBox.information(self, "Успех", f"Успешно удалено {len(deleted_list)} приложений.")
+            
         self.selected_apps.clear()
         self.reload_apps_from_db()
 
+    def on_apps_delete_error(self, error_message):
+        print(f"Ошибка удаления приложений: {error_message}")
+        QMessageBox.warning(self, "Ошибка", f"Не удалось удалить приложения:\n{error_message}")
+
     def reload_apps_from_db(self):
+        print("Запрос на обновление приложений... (запуск worker)")
+        if self.app_load_worker and self.app_load_worker.isRunning():
+            print("Worker все еще занят, пропускаем.")
+            return 
+            
+        self.app_load_worker = LoadAppsWorker()
+        
+        self.app_load_worker.finished.connect(self.on_apps_loaded)
+        self.app_load_worker.error.connect(self.on_apps_load_error)
+        
+        self.app_load_worker.start()
+
+    def on_apps_loaded(self, games, apps):
+        print("Приложения успешно загружены!")
         current_index = self.stack.currentIndex()
         
-        self.games, self.tools = load_apps_from_db()
+        is_search_active = (current_index == 2)
+        
+        self.games = games
+        self.tools = apps
         self.filtered_games = self.games.copy()
         self.filtered_apps = self.tools.copy()
 
@@ -646,11 +717,21 @@ class MainWindow(QWidget):
         self.stack.addWidget(self.create_page(self.games, "Games"))
         self.stack.addWidget(self.create_page(self.tools, "Applications"))
         
-        if current_index < self.stack.count():
+        if is_search_active:
+            self.update_search_results()
+            self.stack.setCurrentIndex(2)
+        elif current_index < self.stack.count():
             self.stack.setCurrentIndex(current_index)
         else:
             self.stack.setCurrentIndex(0)
+            
+        self.app_load_worker = None
 
+    def on_apps_load_error(self, error_message):
+        print(f"Ошибка воркера: {error_message}")
+        QMessageBox.warning(self, "Ошибка сети", f"Не удалось обновить список приложений:\n{error_message}")
+        self.app_load_worker = None
+    
     def update_custom_tray_apps(self):
         known_tray_apps = {
             "steam.exe": ("images/tray/steam_icon.png", lambda: print("Steam clicked")),
