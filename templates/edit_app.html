@@ -1,22 +1,43 @@
-<!DOCTYPE html>
-<html lang="ru">
-<head>
-    <meta charset="UTF-8">
-    <title>Редактировать приложение</title>
-    <style>
-        body { font-family: sans-serif; background: #222; color: #eee; }
-        form { max-width: 500px; margin: 20px auto; padding: 20px; background: #333; border-radius: 8px; }
-        div { margin-bottom: 15px; }
-        label { display: block; margin-bottom: 5px; font-weight: bold; }
-        input, select { width: 100%; padding: 8px; box-sizing: border-box; background: #555; color: #eee; border: none; border-radius: 4px; }
-        .error { color: #f88; font-size: 0.9em; }
-        input[type="submit"] { background: #EAA21B; color: #212121; font-weight: bold; cursor: pointer; }
-    </style>
-</head>
-<body>
-    <h1>Редактировать приложение</h1>
+{% extends "base.html" %}
+{% block title %}Редактировать{% endblock %}
+
+{% block head_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/css/clients.css') }}" />
+<style>
+    .app-form {
+        max-width: 600px;
+        margin-bottom: 30px;
+        padding: 20px;
+        background: #2a2a2a;
+        border-radius: 8px;
+    }
+    .app-form div { margin-bottom: 15px; }
+    .app-form label { display: block; margin-bottom: 5px; font-weight: bold; }
+    .app-form input, .app-form select { 
+        width: 100%; 
+        padding: 8px; 
+        box-sizing: border-box; 
+        background: #555; 
+        color: #eee; 
+        border: 1px solid #777; 
+        border-radius: 4px; 
+    }
+    .app-form .error { color: #f88; font-size: 0.9em; }
+    .app-form input[type="submit"] { 
+        background: #EAA21B; color: #212121; 
+        font-weight: bold; cursor: pointer; 
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="clients-content">
     
-    <form method="POST" enctype="multipart/form-data">
+    <div class="clients-header">
+        <div class="font-medium text-lg">Редактировать: {{ form.name.data }}</div>
+    </div>
+    
+    <form class="app-form" method="POST" enctype="multipart/form-data">
         {{ form.hidden_tag() }}
 
         <div>
@@ -57,8 +78,9 @@
                 <span class="error">[{{ error }}]</span>
             {% endfor %}
         </div>
+        
+        <a href="{{ url_for('apps_page') }}" style="color: #eee; margin-top: 10px; display: block;">Назад к списку</a>
     </form>
     
-    <a href="{{ url_for('index') }}">Назад</a>
-</body>
-</html>
+</section>
+{% endblock %}

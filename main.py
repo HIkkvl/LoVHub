@@ -1,10 +1,9 @@
-# main.py
 import sys
 import os
 from PyQt5.QtCore import Qt
 from PyQt5.QtWidgets import QApplication
 
-# Установка HiDPI ДО создания QApplication
+
 QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
 QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
 

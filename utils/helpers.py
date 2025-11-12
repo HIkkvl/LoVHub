@@ -67,13 +67,11 @@ def parse_steam_url_shortcut(url_path):
         with open(url_path, 'r', encoding='utf-8') as f:
             content = f.read()
             
-            # Ищем AppID в файле
             import re
             url_match = re.search(r'URL=steam://rungameid/(\d+)', content)
             if url_match:
                 return url_match.group(1)
             
-            # Альтернативный формат
             exe_match = re.search(r'Target=.*steam.exe.*-applaunch\s+(\d+)', content)
             if exe_match:
                 return exe_match.group(1)
@@ -84,14 +82,13 @@ def parse_steam_url_shortcut(url_path):
 def parse_windows_shortcut(lnk_path):
     """Извлекает путь и аргументы из ярлыка Windows (.lnk)"""
     try:
-        pythoncom.CoInitialize()  # Инициализация COM для работы с ярлыками
+        pythoncom.CoInitialize()  
         shell = Dispatch("WScript.Shell")
         shortcut = shell.CreateShortCut(lnk_path)
         
         target = shortcut.TargetPath
         args = shortcut.Arguments
         
-        # Если это Steam-ярлык, извлекаем AppID
         if "steam.exe" in target.lower():
             import re
             match = re.search(r'-applaunch\s+(\d+)', args)
@@ -102,7 +99,6 @@ def parse_windows_shortcut(lnk_path):
                     "name": shortcut.Description,
                 }
         
-        # Обычный ярлык (программа или игра)
         return {
             "type": "app",
             "path": target + (" " + args if args else ""),
@@ -112,7 +108,7 @@ def parse_windows_shortcut(lnk_path):
         print(f"Ошибка чтения .lnk файла: {e}")
         return None
     finally:
-        pythoncom.CoUninitialize()  # Освобождаем COM
+        pythoncom.CoUninitialize()  
 
 def save_icon(file):
     """Сохраняет загруженную иконку в папку static/icons/ и возвращает имя файла"""
@@ -121,7 +117,7 @@ def save_icon(file):
     if not os.path.exists(upload_folder):
         os.makedirs(upload_folder)
 
-    filename = f"{uuid.uuid4()}.png"  # Сохраняем как PNG для лучшего качества
+    filename = f"{uuid.uuid4()}.png"  
     file_path = os.path.join(upload_folder, filename)
     
     # Если это QPixmap (из интерфейса)
@@ -138,9 +134,8 @@ def save_icon(file):
 
 def load_apps_from_db():
     try:
-        # Мы используем API endpoint, который у тебя УЖЕ БЫЛ в server.py
         response = requests.get("http://localhost:5000/api/apps", timeout=3)
-        response.raise_for_status() # Вызовет ошибку, если сервер ответил 4xx или 5xx
+        response.raise_for_status() 
         
         apps_list = response.json()
         
@@ -151,7 +146,6 @@ def load_apps_from_db():
     
     except requests.exceptions.RequestException as e:
         print(f"Ошибка: Не удалось загрузить приложения с сервера: {e}")
-        # Возвращаем пустые списки, чтобы интерфейс не "упал"
         return [], []
 
 def add_app_to_db(name, path, category, icon=None):
@@ -159,8 +153,7 @@ def add_app_to_db(name, path, category, icon=None):
     ЗАМЕНЯЕТ старую функцию. 
     Отправляет данные о новом приложении на сервер через API.
     """
-    # 'icon' - это имя файла (например, 'uuid.png'), 
-    # которое вернула функция save_icon()
+
     
     payload = {
         "name": name,
@@ -170,7 +163,6 @@ def add_app_to_db(name, path, category, icon=None):
     }
     
     try:
-        # Используем новый API endpoint
         response = requests.post("http://localhost:5000/api/add_app", json=payload, timeout=3)
         response.raise_for_status()
         
@@ -194,7 +186,6 @@ def delete_app_from_db(app_name):
     payload = {"name": app_name}
     
     try:
-        # Используем новый API endpoint
         response = requests.post("http://localhost:5000/api/delete_app", json=payload, timeout=3)
         response.raise_for_status()
         

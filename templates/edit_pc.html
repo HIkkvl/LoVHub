@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block title %}Редактировать ПК{% endblock %}
+
+{% block head_css %}
+<style>
+/* (Стили скопированы из clients.html) */
+.app-form {
+    max-width: 600px; margin-bottom: 30px; padding: 20px;
+    background: #f6f6f7; border: 1px solid #ddd; border-radius: 8px;
+}
+.app-form div { margin-bottom: 15px; }
+.app-form label { display: block; margin-bottom: 5px; font-weight: 500; color: #222; }
+.app-form input { 
+    width: 100%; padding: 8px; box-sizing: border-box; background: #fff; 
+    color: #222; border: 1px solid #ccc; border-radius: 4px; 
+}
+/* Стили для поля "только чтение" */
+.app-form input[readonly] { background: #eee; color: #777; cursor: not-allowed; }
+.app-form input[type="submit"] { 
+    background: #EAA21B; color: #212121; font-weight: bold; cursor: pointer; border: none; 
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="clients-content">
+    
+    <div class="clients-header">
+        <div class="font-medium text-lg">Редактировать ПК</div>
+    </div>
+    
+    <form class="app-form" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+        
+        <div>
+            <label for="pc_name">Имя компьютера (Hostname)</label>
+            <input type="text" id="pc_name" name="pc_name" value="{{ pc.pc_name }}" readonly>
+        </div>
+
+        <div>
+            <label for="display_name">Новое имя (Псевдоним, напр. 'ПК-1')</label>
+            <input type="text" id="display_name" name="display_name" value="{{ pc.display_name or pc.pc_name }}" required>
+        </div>
+
+        <div>
+            <input type="submit" value="Сохранить имя">
+        </div>
+        
+        <a href="{{ url_for('computers_page') }}" style="color: #222; margin-top: 10px; display: block;">Назад к списку</a>
+    </form>
+    
+</section>
+{% endblock %}

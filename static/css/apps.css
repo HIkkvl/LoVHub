@@ -1,0 +1,254 @@
+/* --- Стили Хедера --- */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #ececec;
+    padding: 8px 24px;
+    border-bottom: 1px solid #ddd;
+}
+.app-tabs { 
+    display: flex; 
+    gap: 8px; 
+}
+.tab-link {
+    padding: 4px 16px;
+    font-weight: 500;
+    background-color: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: 16px;
+    color: #555;
+}
+.tab-link:hover { 
+    color: #000; 
+}
+.tab-link.active { 
+    border-bottom: 2px solid #EAA21B; 
+    color: #EAA21B; 
+}
+.add-app-btn {
+    background-color: #EAA21B;
+    color: #212121;
+    font-weight: bold;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    font-size: 28px;
+    line-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.add-app-btn:hover { 
+    background-color: #d3951e; 
+}
+
+/* --- Стили Модальных Окон --- */
+.modal-backdrop {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.6);
+}
+.modal-content {
+    background-color: #D3D3D3; /* Серый фон */
+    margin: 5% auto;
+    padding: 40px 60px;
+    border: none;
+    width: 450px;
+    max-width: 90%;
+    height: 700px;
+    border-radius: 8px;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.modal-close {
+    color: #888;
+    float: right;
+    font-size: 32px;
+    font-weight: bold;
+    line-height: 1;
+    position: absolute;
+    top: 15px;
+    right: 20px;
+}
+.modal-close:hover,
+.modal-close:focus {
+    color: #555;
+    text-decoration: none;
+    cursor: pointer;
+}
+.modal-content h2 { 
+    color: #EAA21B;
+    margin-top: 0;
+    margin-bottom: 20px; 
+    font-size: 32px;
+    font-weight: normal;
+}
+
+/* --- Стили Формы --- */
+.app-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 25px;
+}
+.app-form > div {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.app-form label { 
+    display: none; 
+}
+.app-form input[type="text"], 
+.app-form select { 
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid #777;
+    color: #222;
+    font-size: 18px;
+    padding: 5px 0;
+    text-align: center;
+    width: 100%;
+}
+.app-form input[type="text"]::placeholder {
+    color: #777;
+}
+.app-form select {
+    color: #222;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    appearance: none;
+    background-image: url('data:image/svg+xml;utf8,<svg fill="%23777" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+    background-repeat: no-repeat;
+    background-position: right 5px center;
+    padding-right: 30px;
+}
+
+/* Область загрузки изображения */
+.image-upload-area {
+    width: 334px;
+    height: 447px;
+    background-color: #EAA21B;
+    border-radius: 8px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background-color 0.2s;
+    position: relative;
+    overflow: hidden;
+}
+.image-upload-area:hover {
+    background-color: #d3951e;
+}
+.image-upload-area img.preview {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    z-index: 1;
+}
+.image-upload-area .upload-icon {
+    z-index: 2;
+    width: 60px; height: 60px; stroke: white;
+    margin-bottom: 10px;
+}
+.image-upload-area .upload-text {
+    z-index: 2;
+    color: white;
+    font-size: 16px;
+}
+.app-form input[type="file"] {
+    display: none;
+}
+.app-form input[type="submit"] { 
+    background: transparent;
+    border: none;
+    color: #EAA21B;
+    font-weight: bold; cursor: pointer; 
+    font-size: 40px;
+    padding: 0;
+    margin-top: 10px;
+}
+.app-form input[type="submit"]:hover {
+    opacity: 0.8;
+}
+
+/* --- Стили Карточек --- */
+.app-list {
+    display: flex; 
+    flex-wrap: wrap; 
+    padding: 24px; 
+}
+.app-item {
+    margin: 10px;
+    width: 334px; 
+    height: 447px; 
+    box-sizing: border-box; 
+    color: white; 
+    position: relative; 
+    overflow: hidden; 
+    border-radius: 12px; 
+    background-color: #333; 
+    background-size: cover;
+    background-position: center;
+}
+.app-item h3 { 
+    position: absolute; 
+    bottom: 0; 
+    left: 0;
+    width: 100%; 
+    margin: 0; 
+    padding: 25px 15px 15px; 
+    text-align: center; 
+    font-size: 20px;
+    background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0) 100%);
+}
+.app-item .actions { 
+    position: absolute; 
+    top: 10px; 
+    right: 10px; 
+    z-index: 2; 
+}
+.btn-edit-app {
+    background-color: rgba(0, 0, 0, 0.4); 
+    color: #212121; 
+    width: 32px; 
+    height: 32px; 
+    padding: 0;
+    display: flex; 
+    align-items: center; 
+    justify-content: center;
+    border-radius: 50%; 
+    border: none; 
+    cursor: pointer;
+    text-decoration: none; 
+    transition: background-color 0.2s;
+}
+.btn-edit-app:hover { 
+    background-color: rgba(0, 0, 0, 0.7); 
+}
+.btn-edit-app svg {
+    width: 16px; 
+    height: 16px; 
+    stroke: #ffffff; 
+}

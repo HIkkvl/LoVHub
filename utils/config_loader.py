@@ -1,6 +1,6 @@
 import configparser
 import os
-import secrets # Для генерации секретного ключа
+import secrets 
 
 CONFIG_FILE = 'config.ini' # Файл будет лежать в корне проекта
 
@@ -13,20 +13,16 @@ def load_config():
     
     if not os.path.exists(CONFIG_FILE):
         print(f"Файл {CONFIG_FILE} не найден. Создаем новый...")
-        # Создаем конфиг по умолчанию
         config['Admin'] = {
-            'AdminUsername': 'admin',
+            'AdminUsername': 'HIkkvl',
             'AdminPassword': '1478',
-            'SECRET_KEY': secrets.token_hex(24) # Генерируем ключ
+            'SECRET_KEY': secrets.token_hex(24) 
         }
         with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
             config.write(configfile)
     else:
-        # Читаем существующий файл
         config.read(CONFIG_FILE, encoding='utf-8')
 
-    # --- Проверка, что все ключи на месте ---
-    # (на случай, если файл .ini был создан старой версией)
     if 'Admin' not in config:
         config['Admin'] = {}
         
@@ -41,10 +37,10 @@ def load_config():
         changed = True
         
     if 'SECRET_KEY' not in config['Admin']:
-        config['Admin']['SECRET_KEY'] = secrets.token_hex(24) # Добавляем ключ, если его нет
+        config['Admin']['SECRET_KEY'] = secrets.token_hex(24) 
         changed = True
     
-    # Если мы что-то добавили, пересохраняем файл
+
     if changed:
         with open(CONFIG_FILE, 'w', encoding='utf-8') as configfile:
             config.write(configfile)
@@ -74,3 +70,18 @@ def get_secret_key():
     """
     config = load_config()
     return config['Admin'].get('SECRET_KEY', 'default_fallback_key_12345')
+
+
+def get_kaspi_public_key():
+    """Возвращает Kaspi Public Key"""
+    try:
+        return load_config()['Kaspi']['PublicKey']
+    except Exception:
+        raise KeyError("В config.ini не найден [Kaspi] -> PublicKey")
+
+def get_kaspi_private_key():
+    """Возвращает Kaspi Private Key"""
+    try:
+        return load_config()['Kaspi']['PrivateKey']
+    except Exception:
+        raise KeyError("В config.ini не найден [Kaspi] -> PrivateKey")

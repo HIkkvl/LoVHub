@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Тарифы{% endblock %}
+
+{% block head_css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/tariffs.css') }}" />
+{% endblock %}
+
+
+{% block content %}
+
+<div id="addTariffModal" class="modal-backdrop">
+    <div class="modal-content">
+        <span class="modal-close" id="closeAddModalBtn">&times;</span>
+        <h2>Создать Тариф</h2>
+        
+        <form class="app-form" action="{{ url_for('tariffs_page') }}" method="POST">
+            {{ form.hidden_tag() }} <div>
+                {{ form.name.label }}
+                {{ form.name(placeholder="Название, напр. '1 час'") }}
+                {% for error in form.name.errors %}
+                    <span class="error">[{{ error }}]</span>
+                {% endfor %}
+            </div>
+            <div>
+                {{ form.duration_text.label }}
+                {{ form.duration_text(placeholder="Длительность, напр. '1 час' или 'Ночь'") }}
+            </div>
+            <div>
+                {{ form.price_common.label }}
+                {{ form.price_common(placeholder="Цена (Общий зал), напр. 300") }}
+            </div>
+            <div>
+                {{ form.price_vip.label }}
+                {{ form.price_vip(placeholder="Цена (VIP зал), напр. 350") }}
+            </div>
+             <div>
+                {{ form.schedule_text.label }}
+                {{ form.schedule_text(placeholder="График продажи, напр. 'Пн-Чт 09:00-18:00'") }}
+            </div>
+            <div>
+                {{ form.schedule_icons.label }}
+                {{ form.schedule_icons(placeholder="Иконки, напр. 'sun' или 'sun,moon'") }}
+            </div>
+            <div>
+                {{ form.is_active() }}
+                <label for="is_active" class="checkbox-label">Это активная скидка? (Желтая карточка)</label>
+            </div>
+            <div>
+                {{ form.submit(value="Создать Тариф") }}
+            </div>
+        </form>
+    </div>
+</div>
+<div id="editTariffModal" class="modal-backdrop">
+    <div class="modal-content">
+        <span class="modal-close" id="closeEditModalBtn">&times;</span>
+        <h2>Редактировать Тариф</h2>
+        
+        <form id="editTariffForm" class="app-form" method="POST">
+            <input type="hidden" name="csrf_token" id="edit_csrf_token">
+            
+            <div>
+                <label for="edit_name">Название тарифа</label>
+                <input type="text" name="name" id="edit_name">
+            </div>
+            <div>
+                <label for="edit_duration_text">Длительность</label>
+                <input type="text" name="duration_text" id="edit_duration_text">
+            </div>
+            <div>
+                <label for="edit_price_common">Цена (Общий зал)</label>
+                <input type="number" name="price_common" id="edit_price_common">
+            </div>
+            <div>
+                <label for="edit_price_vip">Цена (VIP зал)</label>
+                <input type="number" name="price_vip" id="edit_price_vip">
+            </div>
+             <div>
+                <label for="edit_schedule_text">График продажи</label>
+                <input type="text" name="schedule_text" id="edit_schedule_text">
+            </div>
+            <div>
+                <label for="edit_schedule_icons">Иконки (sun, moon)</label>
+                <input type="text" name="schedule_icons" id="edit_schedule_icons">
+            </div>
+            <div>
+                <input type="checkbox" name="is_active" id="edit_is_active" value="y">
+                <label for="edit_is_active" class="checkbox-label">Это активная скидка? (Желтая карточка)</label>
+            </div>
+            <div>
+                <input type="submit" value="Сохранить">
+            </div>
+        </form>
+    </div>
+</div>
+<section id="tariffs-container" 
+         class="clients-content"
+         data-csrf-token="{{ form.csrf_token._value() }}">
+    
+    <div class="app-header">
+        <div class="app-tabs">
+            <button class="tab-link active">Общий зал</button>
+            <button class="tab-link">Активные</button>
+            <button class="tab-link">Скидки</button>
+            <button class="tab-link">Промокоды</button>
+        </div>
+        <button class="add-app-btn" id="openTariffModalBtn">+</button>
+    </div>
+
+    <div class="tariff-list">
+
+        {% for tariff in tariffs %}
+        <div class="tariff-card {% if tariff.is_active %}active{% endif %}">
+            
+            <div class="tariff-actions">
+                <button class="btn-tariff-action btn-edit-tariff" data-tariff-id="{{ tariff.id }}">
+                    <i class="fas fa-pencil-alt"></i> </button>
+                <form action="{{ url_for('delete_tariff', tariff_id=tariff.id) }}" method="POST" style="margin: 0;">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+                    <button type="submit" class="btn-tariff-action delete" 
+                            onclick="return confirm('Вы уверены, что хотите удалить тариф {{ tariff.name }}?')">
+                        <i class="fas fa-trash-alt"></i> </button>
+                </form>
+            </div>
+            
+            <div class="tariff-card-header">
+                <span class="icon">
+                    {% if tariff.is_active %}
+                        <i class="fas fa-clock"></i>
+                    {% else %}
+                        <img src="{{ url_for('static', filename='images/logo.png') }}" alt="logo">
+                    {% endif %}
+                </span>
+            </div>
+            <div class="tariff-card-body">
+                <div class="tariff-duration">{{ tariff.name }}</div>
+                <div class="tariff-price-row">
+                    <span class="tariff-zone">Общий зал</span>
+                    <span class="tariff-price">{{ tariff.price_common }} т</span>
+                </div>
+                <div class="tariff-price-row">
+                    <span class="tariff-zone">VIP зал</span>
+                    <span class="tariff-price">{{ tariff.price_vip }} т</span>
+                </div>
+            </div>
+            <div class="tariff-card-footer">
+                <div class="footer-row">
+                    <span class="label">Длительность</span>
+                    <span class="value">{{ tariff.duration_text }}</span>
+                </div>
+                <div class="footer-row">
+                    <span class="label">График продажи</span>
+                    <span class="value">{{ tariff.schedule_text or 'Круглосуточно' }}</span>
+                </div>
+                <div class="footer-row">
+                    <span class="label"></span>
+                    <span class="footer-icons">
+                        {% if 'sun' in (tariff.schedule_icons or '') %}
+                            <i class="fas fa-sun"></i>
+                        {% endif %}
+                        {% if 'moon' in (tariff.schedule_icons or '') %}
+                            <i class="fas fa-moon"></i>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        {% else %}
+            <p style="color: #aaa; padding: 24px;">Тарифы еще не созданы. Нажмите "+", чтобы добавить первый тариф.</p>
+        {% endfor %}
+
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/tariffs.js') }}" defer></script>
+{% endblock %}

@@ -1,0 +1,248 @@
+/* --- Хедер (Вкладки и кнопка +) --- */
+.app-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background-color: #ececec;
+    padding: 8px 24px;
+    border-bottom: 1px solid #ddd;
+}
+.app-tabs { 
+    display: flex; 
+    gap: 8px; 
+}
+.tab-link {
+    padding: 4px 16px;
+    font-weight: 500;
+    background-color: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    cursor: pointer;
+    font-size: 16px;
+    color: #555;
+}
+.tab-link:hover { 
+    color: #000; 
+}
+.tab-link.active { 
+    border-bottom: 2px solid #EAA21B; 
+    color: #EAA21B; 
+}
+.add-app-btn {
+    background-color: #EAA21B;
+    color: #212121;
+    font-weight: bold;
+    padding: 0;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 36px;
+    height: 36px;
+    font-size: 28px;
+    line-height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.add-app-btn:hover { 
+    background-color: #d3951e; 
+}
+
+/* --- Модальное окно (использует стили из apps.css) --- */
+.modal-backdrop {
+    display: none; position: fixed; z-index: 1000;
+    left: 0; top: 0; width: 100%; height: 100%;
+    overflow: auto; background-color: rgba(0,0,0,0.6);
+}
+.modal-content {
+    background-color: #2a2a2a; margin: 10% auto; padding: 25px;
+    border: 1px solid #888; width: 80%; max-width: 600px;
+    border-radius: 8px; position: relative;
+}
+.modal-close {
+    color: #aaa; float: right; font-size: 32px; font-weight: bold;
+    line-height: 1; position: absolute; top: 15px; right: 20px;
+}
+.modal-close:hover, .modal-close:focus {
+    color: #fff; text-decoration: none; cursor: pointer;
+}
+.modal-content h2 { color: white; margin-top: 0; margin-bottom: 20px; }
+
+/* --- Форма тарифа --- */
+.app-form {
+    max-width: 100%; margin-bottom: 0; padding: 0;
+    background: transparent; border-radius: 0;
+}
+.app-form div { margin-bottom: 15px; }
+.app-form label { display: block; margin-bottom: 5px; font-weight: bold; color: #eee; }
+.app-form input[type="text"], 
+.app-form input[type="number"], 
+.app-form select { 
+    width: 100%; padding: 8px; box-sizing: border-box; 
+    background: #555; color: #eee; border: 1px solid #777; 
+    border-radius: 4px; 
+}
+.app-form input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    /* (Центрируем галочку) */
+    vertical-align: middle;
+}
+.app-form .checkbox-label {
+    display: inline-block;
+    color: #eee;
+    margin-left: 10px;
+    font-weight: normal;
+    /* (Центрируем текст рядом с галочкой) */
+    vertical-align: middle;
+}
+.app-form .error { color: #f88; font-size: 0.9em; }
+.app-form input[type="submit"] { 
+    background: #EAA21B; color: #212121; 
+    font-weight: bold; cursor: pointer; border: none; padding: 10px 15px;
+}
+
+/* --- Список тарифов --- */
+.tariff-list {
+    display: flex;
+    flex-wrap: wrap;
+    padding: 24px;
+    gap: 20px;
+}
+.tariff-card {
+    width: 260px; 
+    background-color: #f6f6f7;
+    border: 1px solid #dcdcdc;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; 
+    transition: all 0.2s ease-in-out;
+    position: relative; /* (Для кнопок действий) */
+}
+.tariff-card.active {
+    border-color: #EAA21B;
+    box-shadow: 0 4px 15px rgba(234, 162, 27, 0.3);
+}
+
+/* Шапка карточки */
+.tariff-card-header {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 20px 15px;
+    background-color: #e0e0e0;
+}
+.tariff-card.active .tariff-card-header {
+    background-color: #EAA21B;
+}
+.tariff-card-header .icon {
+    font-size: 28px;
+    color: #555;
+}
+.tariff-card-header .icon img { 
+    height: 32px;
+    width: 32px;
+    opacity: 0.8;
+}
+.tariff-card.active .tariff-card-header .icon {
+    color: #212121; 
+}
+
+/* (НОВЫЙ БЛОК) Кнопки Редактировать/Удалить */
+.tariff-actions {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 5px;
+}
+.btn-tariff-action {
+    background-color: rgba(0, 0, 0, 0.3);
+    color: white;
+    border: none;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s;
+}
+.btn-tariff-action:hover {
+    background-color: rgba(0, 0, 0, 0.6);
+}
+.btn-tariff-action.delete {
+    background-color: rgba(244, 67, 54, 0.5); /* (Красный) */
+}
+.btn-tariff-action.delete:hover {
+    background-color: rgba(244, 67, 54, 0.8);
+}
+.btn-tariff-action i {
+    font-size: 14px;
+}
+
+
+/* Тело карточки (цены) */
+.tariff-card-body {
+    padding: 15px;
+    flex-grow: 1;
+}
+.tariff-duration {
+    text-align: center;
+    font-weight: bold;
+    font-size: 1.3em;
+    color: #333;
+    margin-bottom: 15px;
+}
+.tariff-price-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 0;
+    border-bottom: 1px solid #eee;
+}
+.tariff-price-row:last-child {
+    border-bottom: none;
+}
+.tariff-zone {
+    font-weight: 500;
+    color: #333;
+}
+.tariff-price {
+    font-weight: bold;
+    color: #EAA21B;
+    font-size: 1.1em;
+}
+
+/* Футер (подвал) карточки */
+.tariff-card-footer {
+    background-color: #ececec;
+    padding: 15px;
+    font-size: 0.8em;
+    color: #555;
+}
+.footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 5px;
+}
+.footer-row:last-child {
+    margin-bottom: 0;
+}
+.footer-row .label {
+    font-weight: 500;
+    color: #777;
+}
+.footer-row .value {
+    font-weight: bold;
+    color: #333;
+}
+.footer-icons {
+    display: flex;
+    gap: 8px;
+    font-size: 1.2em; 
+}

@@ -1,0 +1,22 @@
+.clients-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}
+
+.clients-header {
+  background-color: #ececec;
+  border-bottom: 1px solid #eaa21b;
+  padding: 8px 24px;
+  display: flex;
+  align-items: center;
+}
+
+.clients-table-container {
+  overflow-x: auto;
+}
+
+.clients-table {
+  min-width: 100%;
+}
+

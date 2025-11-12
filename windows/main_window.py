@@ -1,20 +1,31 @@
+# main_window.py
 from PyQt5.QtWidgets import (QWidget, QVBoxLayout, QStackedWidget, QScrollArea, 
-                            QLabel, QGridLayout, QMessageBox, QInputDialog, 
-                            QLineEdit, QShortcut, QSizePolicy, QPushButton,
-                            QGraphicsDropShadowEffect, QFrame,QCheckBox,QDialog)  
+                             QLabel, QGridLayout, QMessageBox, QInputDialog, 
+                             QLineEdit, QShortcut, QSizePolicy, QPushButton,
+                             QGraphicsDropShadowEffect, QFrame,QCheckBox,QDialog)  
 from PyQt5.QtGui import QIcon, QPixmap, QPainter, QPainterPath, QKeySequence, QColor
 from PyQt5.QtCore import Qt, QTimer, QSize,QRect,QPoint
 from theme.theme import load_stylesheet
 from core.app_launcher import AppLauncherThread
 from core.taskbar_worker import TaskbarWorker
 from utils.win_tools import (hide_taskbar, kill_explorer, 
-                            force_fullscreen_work_area, 
-                            disable_task_manager, enable_task_manager)
+                             force_fullscreen_work_area, 
+                             disable_task_manager, enable_task_manager)
 from utils.helpers import parse_steam_url_shortcut, parse_windows_shortcut, AnimatedButton
 from utils.dialogs import AddAppDialog
-from utils.network import send_app_launch_info
-from utils.workers import LoadAppsWorker, AddAppWorker, DeleteAppsWorker
 
+# (ИЗМЕНЕНО) УДАЛЕН 'send_app_launch_info'
+# from utils.network import send_app_launch_info 
+
+# (ИЗМЕНЕНО) ДОБАВЛЕН 'LogLaunchWorker'
+from utils.workers import (LoadAppsWorker, AddAppWorker, DeleteAppsWorker, 
+                           HeartbeatWorker, CoreTimerWorker, HeartbeatLoopWorker,
+                           LogLaunchWorker) 
+
+from utils.config_loader import get_admin_username, get_admin_password
+
+import time
+import socket
 import win32gui
 import win32con
 import keyboard
@@ -27,7 +38,6 @@ def rounded_pixmap(pixmap, radius=12):
     size = pixmap.size()
     rounded = QPixmap(size)
     rounded.fill(Qt.transparent)
-
     painter = QPainter(rounded)
     painter.setRenderHint(QPainter.Antialiasing)
     path = QPainterPath()
@@ -35,7 +45,6 @@ def rounded_pixmap(pixmap, radius=12):
     painter.setClipPath(path)
     painter.drawPixmap(0, 0, pixmap)
     painter.end()
-
     return rounded
 
 
@@ -43,7 +52,7 @@ class MainWindow(QWidget):
     def __init__(self, app, username):
         super().__init__()
         self.app = app
-        self.username = username
+        self.username = username 
         self.edit_mode = False
         self.selected_apps = set()
         screen = self.app.primaryScreen()
@@ -72,8 +81,14 @@ class MainWindow(QWidget):
 
         self.games = []
         self.tools = []
+        self.admin_user = None
+        self.admin_pass = None
+        self.pc_name = socket.gethostname() 
         self.app_load_worker = None
         self.workers = []
+        
+        self.core_timer = None 
+        self.heartbeat_loop = None 
         
         self.running_procs = []
         self.filtered_games = self.games.copy()
@@ -81,17 +96,19 @@ class MainWindow(QWidget):
         self.settings_open = False
 
         self.init_ui()
-        self.init_timers()
-        self.init_settings_window()
-
-        self.settings_window.time_expired.connect(self.handle_time_expired)
+        self.init_timers() 
         
+        from windows.settings import SettingsWindow
+        self.settings_window = SettingsWindow(self)
+        self.settings_window.time_expired.connect(self.handle_time_expired)
+
         self.set_exit_hotkey()
         keyboard.add_hotkey('alt+shift', self.topbar.switch_language)
 
         QTimer.singleShot(2000, self.taskbar_worker.start)
-
         self.reload_apps_from_db()
+
+        self.init_heartbeat_timer() 
 
     def closeEvent(self, event):
         event.ignore()
@@ -100,42 +117,35 @@ class MainWindow(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
         main_layout.setSpacing(0)
-
         from windows.topbar import TopBar
         self.topbar = TopBar(self)
         main_layout.addWidget(self.topbar)
-
         self.stack = QStackedWidget()
         self.stack.addWidget(QWidget())
         self.stack.addWidget(QWidget())
-        
         main_layout.addWidget(self.stack)
         self.stack.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-
         self.setLayout(main_layout)
         self.showFullScreen()
 
     def init_timers(self):
         self.taskbar_worker = TaskbarWorker()
         self.taskbar_worker.update_icons.connect(self.update_taskbar_icons)
-
         self.tray_check_timer = QTimer()
         self.tray_check_timer.timeout.connect(self.update_custom_tray_apps)
         self.tray_check_timer.start(5000)
-
         self.taskbar_timer = QTimer(self)
         self.taskbar_timer.timeout.connect(self.taskbar_worker.start)
         self.taskbar_timer.start(3000)
-
         self.reload_timer = QTimer()
         self.reload_timer.timeout.connect(self.reload_apps_from_db)
         self.reload_timer.start(10000)
 
-    def init_settings_window(self):
-        from windows.settings import SettingsWindow
-        self.settings_window = SettingsWindow(self)
-
     def handle_time_expired(self):
+        print("Получен сигнал time_expired. Остановка таймеров.")
+        if self.core_timer: self.core_timer.stop()
+        if self.heartbeat_loop: self.heartbeat_loop.stop()
+            
         enable_task_manager()
         from utils.win_tools import show_taskbar, start_explorer
         show_taskbar()
@@ -150,6 +160,7 @@ class MainWindow(QWidget):
             self.settings_window.close_with_animation()
             self.settings_open = False
         else:
+            self.settings_window.update_status_from_server()
             button_pos = self.topbar.settings_btn.mapToGlobal(
                 self.topbar.settings_btn.rect().bottomRight())
             target_pos = button_pos - self.settings_window.rect().topRight()
@@ -160,99 +171,86 @@ class MainWindow(QWidget):
         page_widget = QWidget()
         page_layout = QVBoxLayout(page_widget)
         page_layout.setAlignment(Qt.AlignTop)
-
         scroll_area = QScrollArea()
         scroll_area.setWidgetResizable(True)
         scroll_area.setStyleSheet(""" 
             QScrollArea { border: none; }
             QScrollBar:vertical, QScrollBar:horizontal { width: 0px; height: 0px; background: transparent; }
-            QScrollBar::handle:vertical, QScrollBar::handle:horizontal { background: transparent; }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical,
-            QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { background: transparent; }
         """)
-
         scroll_content = QWidget()
         scroll_layout = QVBoxLayout(scroll_content)
         scroll_layout.setAlignment(Qt.AlignTop | Qt.AlignLeft)
-
         title_label = QLabel(title)
         title_label.setStyleSheet("font-size: 24px; font-weight: bold;")
         title_label.setAlignment(Qt.AlignCenter)
         scroll_layout.addWidget(title_label)
-
         apps_layout = QGridLayout()
         apps_layout.setContentsMargins(120, 30, 120, 0)
         apps_layout.setSpacing(100)
         scroll_layout.addLayout(apps_layout)
-
         row, col, max_columns = 0, 0, 4
-        
         if not items:
              pass 
         else:
             for app in items:
                 btn = AnimatedButton()
                 btn.setFixedSize(int(334 * self.scale_factor), int(447 * self.scale_factor))
-
                 container = QWidget()
-                container_layout = QVBoxLayout(container)
+                container_layout = QGridLayout(container) 
                 container_layout.setContentsMargins(0, 0, 0, 0)
                 container_layout.setSpacing(0)
-
                 icon_filename = app.get('icon', None)
                 icon_exists = icon_filename and os.path.exists(f"static/icons/{icon_filename}")
                 icon_path = f"static/icons/{icon_filename}" if icon_exists else "static/icons/default_icon.png"
-
                 if os.path.exists(icon_path):
                     pixmap = QPixmap(icon_path).scaled(int(334 * self.scale_factor), int(447 * self.scale_factor), Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
                     rounded = rounded_pixmap(pixmap, 12)
                     btn.setIcon(QIcon(rounded))
                     btn.setIconSize(QSize(334, 447))
-
                 btn.setStyleSheet(f"""
                     QPushButton {{
                         color: {'transparent' if icon_exists else 'white'};
-                        border: none;
-                        border-radius: 12px;
-                        font-size: 20px;
-                        text-align: center;
+                        border: none; border-radius: 12px; font-size: 20px; text-align: center;
                         background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #EAA21B, stop:1 #212121);
                     }}
-                    QPushButton:hover {{
-                        background-color: #EAA21B;
-                    }}
+                    QPushButton:hover {{ background-color: #EAA21B; }}
                 """)
-
+                container_layout.addWidget(btn, 0, 0)
                 if self.edit_mode:
-                    checkbox = QCheckBox()
-                    checkbox.setChecked(app["name"] in self.selected_apps)
-                    checkbox.setStyleSheet("QCheckBox::indicator { width: 24px; height: 24px; }")
-                    
-                    container_layout.addWidget(checkbox, alignment=Qt.AlignTop | Qt.AlignRight)
-                    
-                    def on_checkbox_clicked(state, app_name=app["name"]):
-                        if state:
+                    check_btn = QPushButton()
+                    check_btn.setCheckable(True) 
+                    check_btn.setChecked(app["name"] in self.selected_apps)
+                    check_btn.setFixedSize(32, 32) 
+                    check_btn.setFocusPolicy(Qt.NoFocus) 
+                    check_btn.setStyleSheet("""
+                        QPushButton {
+                            background-color: transparent;
+                            border: 2px solid white; 
+                            border-radius: 4px;
+                        }
+                        QPushButton:checked {
+                            background-color: transparent;
+                            image: url(images/check_box.png); 
+                            border: 2px solid white; 
+                        }
+                    """)
+                    container_layout.addWidget(check_btn, 0, 0, Qt.AlignTop | Qt.AlignRight)
+                    def on_check_btn_toggled(checked, app_name=app["name"]):
+                        if checked:
                             self.selected_apps.add(app_name)
                         else:
                             self.selected_apps.discard(app_name)
-                    
-                    checkbox.stateChanged.connect(on_checkbox_clicked)
-                    
-                    def on_button_clicked():
-                        checkbox.setChecked(not checkbox.isChecked())
-                    
+                    check_btn.toggled.connect(on_check_btn_toggled)
+                    def on_button_clicked(check_button=check_btn):
+                        check_button.setChecked(not check_button.isChecked())
                     btn.clicked.connect(on_button_clicked)
                 else:
                     btn.clicked.connect(lambda _, n=app["name"], p=app["path"]: self.run_app(n, p))
-
-                btn.setLayout(container_layout)
-                apps_layout.addWidget(btn, row, col)
-
+                apps_layout.addWidget(container, row, col)
                 col += 1
                 if col >= max_columns:
                     col = 0
                     row += 1
-
         scroll_area.setWidget(scroll_content)
         page_layout.addWidget(scroll_area)
         return page_widget
@@ -260,21 +258,15 @@ class MainWindow(QWidget):
     def update_taskbar_icons(self, hwnd_title_icon_list):
         hwnd_to_data = {hwnd: (title, icon) for hwnd, title, icon in hwnd_title_icon_list}
         current_hwnds = list(hwnd_to_data.keys())
-
         if not hasattr(self, "known_hwnds"):
             self.known_hwnds = []
-
         for hwnd in current_hwnds:
             if hwnd not in self.known_hwnds:
                 self.known_hwnds.append(hwnd)
-
         self.known_hwnds = [hwnd for hwnd in self.known_hwnds if hwnd in current_hwnds and win32gui.IsWindow(hwnd)]
-
         for i in reversed(range(self.topbar.running_apps_container.count())):
             widget = self.topbar.running_apps_container.itemAt(i).widget()
-            if widget:
-                widget.deleteLater()
-
+            if widget: widget.deleteLater()
         for hwnd in self.known_hwnds:
             title, icon = hwnd_to_data[hwnd]
             btn = QPushButton()
@@ -282,16 +274,7 @@ class MainWindow(QWidget):
             btn.setToolTip(title)
             btn.setIcon(icon)
             btn.setIconSize(QSize(40, 40))
-            btn.setStyleSheet("""
-                QPushButton {
-                    background:none;
-                    border: none;
-                    border-radius: 4px;
-                }
-                QPushButton:hover {
-                    background-color: #666;
-                }
-            """)
+            btn.setStyleSheet("QPushButton { background:none; border: none; border-radius: 4px; } QPushButton:hover { background-color: #666; }")
             btn.clicked.connect(lambda _, hwnd=hwnd: self.focus_and_toggle(hwnd))
             self.topbar.running_apps_container.addWidget(btn)
 
@@ -301,79 +284,19 @@ class MainWindow(QWidget):
         else:
             button_global_pos = self.add_btn.mapToGlobal(QPoint(0, 0))
             button_geometry = QRect(button_global_pos, self.add_btn.size())
-        
         topbar_abs_rect = None
         if hasattr(self, 'topbar') and self.topbar.isVisible():
             topbar_abs_rect = QRect(self.topbar.mapToGlobal(QPoint(0,0)), self.topbar.size())
-
         admin_panel_abs_rect = None
         if hasattr(self, 'admin_panel') and self.admin_panel.isVisible():
             admin_panel_abs_rect = QRect(self.admin_panel.mapToGlobal(QPoint(0,0)), self.admin_panel.size())
-        
         dialog = AddAppDialog(self, button_geometry, topbar_abs_rect, admin_panel_abs_rect)
-        
-        dialog.setStyleSheet("""
-            QDialog {
-                background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #202020, stop:1 #121212);
-                border: none;
-                border-radius: 0px;
-                color: white; 
-            }
-            QLabel {
-                color: white;
-                font-size: 14px; 
-            }
-            QLineEdit {
-                background-color: #3c3c3c;
-                color: white;
-                border: 1px solid #555;
-                border-radius: 4px;
-                padding: 5px;
-                font-size: 14px; 
-            }
-            QGroupBox {
-                color: white;
-                font-size: 14px; 
-                border: 1px solid #555;
-                border-radius: 4px;
-                margin-top: 10px;
-            }
-            QGroupBox::title {
-                subcontrol-origin: margin;
-                subcontrol-position: top left;
-                padding: 0 3px;
-                left: 10px; 
-            }
-            QRadioButton {
-                color: white;
-                font-size: 14px; 
-            }
-            QPushButton {
-                background-color: #EAA21B;
-                color: #212121; 
-                border: none;
-                border-radius: 4px;
-                padding: 8px 15px;
-                font-size: 14px; 
-            }
-            QPushButton:hover {
-                background-color: #F0B232; 
-            }
-            QPushButton:pressed {
-                background-color: #D49007; 
-            }
-        """)
-        
+        dialog.setStyleSheet("QDialog { background: qlineargradient(x1: 0, y1: 0,x2: 0, y2: 1,stop:0 #202020, stop:1 #121212); border: none; border-radius: 0px; color: white; } QLabel { color: white; font-size: 14px; } QLineEdit { background-color: #3c3c3c; color: white; border: 1px solid #555; border-radius: 4px; padding: 5px; font-size: 14px; } QGroupBox { color: white; font-size: 14px; border: 1px solid #555; border-radius: 4px; margin-top: 10px; } QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; padding: 0 3px; left: 10px; } QRadioButton { color: white; font-size: 14px; } QPushButton { background-color: #EAA21B; color: #212121; border: none; border-radius: 4px; padding: 8px 15px; font-size: 14px; } QPushButton:hover { background-color: #F0B232; } QPushButton:pressed { background-color: #D49007; }")
         shadow = QGraphicsDropShadowEffect(dialog)
-        shadow.setBlurRadius(32)
-        shadow.setXOffset(9)
-        shadow.setYOffset(0)
-        shadow.setColor(QColor(0, 0, 0, 64))
+        shadow.setBlurRadius(32); shadow.setXOffset(9); shadow.setYOffset(0); shadow.setColor(QColor(0, 0, 0, 64))
         dialog.setGraphicsEffect(shadow)
-        
         if dialog.exec_() == QDialog.Accepted:
             data = dialog.get_data()
-            
             icon_filename = None
             if data["icon"]:
                 try:
@@ -381,22 +304,15 @@ class MainWindow(QWidget):
                     icon_filename = save_icon(data["icon"])
                 except Exception as e:
                     QMessageBox.warning(self, "Ошибка", f"Не удалось сохранить иконку: {e}")
-            
             print(f"Запускаем AddAppWorker для {data['name']}...")
             worker = AddAppWorker(
-                data["name"], 
-                data["path"], 
-                data["type"], 
-                icon_filename
+                data["name"], data["path"], data["type"], icon_filename,
+                self.admin_user, self.admin_pass
             )
-            
             worker.finished.connect(self.on_app_added)
             worker.error.connect(self.on_app_add_error)
-            
             self.workers.append(worker)
-            worker.finished.connect(lambda: self.workers.remove(worker))
-            worker.error.connect(lambda: self.workers.remove(worker))
-            
+            worker.finished.connect(lambda: self.workers.remove(worker) if worker in self.workers else None)
             worker.start()
 
     def on_app_added(self, app_name):
@@ -418,23 +334,32 @@ class MainWindow(QWidget):
                 self.launcher_thread.error.connect(self.on_app_launch_error)
                 self.launcher_thread.start()
             
-            send_app_launch_info(name)
+            self.send_app_launch_info(name, self.username)
         except Exception as e:
             QMessageBox.warning(self, "Ошибка запуска", f"Не удалось запустить: {str(e)}")
 
+    def send_app_launch_info(self, app_name, username):
+        """
+        (НОВАЯ ФУНКЦИЯ)
+        Отправляет лог о запуске на сервер, используя LogLaunchWorker.
+        Использует правильный 'username', а не имя пользователя Windows.
+        """
+        try:
+            worker = LogLaunchWorker(self.pc_name, username, app_name)
+            worker.error.connect(lambda e: print(f"LogLaunchWorker Error: {e}"))
+            
+            self.workers.append(worker)
+            worker.finished.connect(lambda: self.workers.remove(worker) if worker in self.workers else None)
+            worker.start()
+        except Exception as e:
+            print(f"Ошибка запуска LogLaunchWorker: {e}")
+
     def run_steam_game(self, name, steam_url):
         try:
-            import subprocess
-            import time
-            
             subprocess.Popen(["start", steam_url], shell=True)
-            
             time.sleep(3)
-
-            game_running = self.check_if_game_running(name)
-            if not game_running:
+            if not self.check_if_game_running(name):
                 QMessageBox.warning(self, "Ошибка", "Игра не запустилась. Попробуйте еще раз.")
-            
         except Exception as e:
             print(f"Ошибка запуска Steam: {e}")
 
@@ -444,12 +369,10 @@ class MainWindow(QWidget):
                 if name.lower() in proc.info['name'].lower():
                     return True
             return False
-        except:
-            return False
+        except: return False
 
     def on_app_launched(self, name, pid):
         self.running_procs.append((name, pid))
-        send_app_launch_info(name)
         QTimer.singleShot(1500, self.taskbar_worker.start)
 
     def on_app_launch_error(self, message):
@@ -461,15 +384,12 @@ class MainWindow(QWidget):
 
     def toggle_hwnd(self, hwnd):
         try:
-            if not win32gui.IsWindow(hwnd):
-                return
-
+            if not win32gui.IsWindow(hwnd): return
             placement = win32gui.GetWindowPlacement(hwnd)
             if placement[1] == win32con.SW_SHOWMINIMIZED:
                 win32gui.ShowWindow(hwnd, win32con.SW_RESTORE)
             else:
                 win32gui.ShowWindow(hwnd, win32con.SW_MINIMIZE)
-
             win32gui.SetForegroundWindow(hwnd)
         except Exception as e:
             print(f"Ошибка переключения окна: {e}")
@@ -480,10 +400,15 @@ class MainWindow(QWidget):
 
     def ask_exit_password(self):
         pwd, ok = QInputDialog.getText(self, "Выход", "Введите админ-пароль:", QLineEdit.Password)
-        if ok and pwd == "1478":
+        
+        admin_pass_from_config = get_admin_password()
+        admin_user_from_config = get_admin_username()
+
+        if ok and pwd == admin_pass_from_config:
+            self.admin_user = admin_user_from_config
+            self.admin_pass = admin_pass_from_config
             if not hasattr(self, 'admin_panel'):
                 self.init_admin_panel()
-            
             if self.admin_panel.isVisible():
                 self.admin_panel.hide()
                 self.edit_mode = False
@@ -494,131 +419,69 @@ class MainWindow(QWidget):
                 self.edit_mode = True
                 self.selected_apps.clear()
                 self.reload_apps_from_db()
-        else:   
+        else:  
             QMessageBox.warning(self, "Ошибка", "Неверный пароль!")
 
     def init_admin_panel(self):
         self.admin_panel = QFrame(self)
         self.admin_panel.setObjectName("Admin_panel")
-        
         shadow = QGraphicsDropShadowEffect()
-        shadow.setBlurRadius(32.9)
-        shadow.setXOffset(9)
-        shadow.setYOffset(0)
-        shadow.setColor(QColor(0, 0, 0, 64))
+        shadow.setBlurRadius(32.9); shadow.setXOffset(9); shadow.setYOffset(0); shadow.setColor(QColor(0, 0, 0, 64))
         self.admin_panel.setGraphicsEffect(shadow)
         self.admin_panel.setFixedWidth(105)
-        
         topbar_height = self.topbar.height() if hasattr(self, 'topbar') else 0
         panel_height = self.height() - topbar_height
         self.admin_panel.setFixedHeight(panel_height)
         self.admin_panel.move(0, topbar_height)
         self.admin_panel.hide()
-
         main_layout = QVBoxLayout()
-        main_layout.setContentsMargins(10, 10, 10, 20)
-        main_layout.setSpacing(15)
-        
+        main_layout.setContentsMargins(10, 10, 10, 20); main_layout.setSpacing(15)
         self.add_btn = AnimatedButton(self.admin_panel)
-        self.add_btn.setToolTip("Добавить приложение")
-        self.add_btn.setFixedSize(40, 40)
-        self.add_btn.setIconSize(QSize(32, 32))
+        self.add_btn.setToolTip("Добавить приложение"); self.add_btn.setFixedSize(40, 40); self.add_btn.setIconSize(QSize(32, 32))
         add_icon_path = "images/add_icon.png"
-        if os.path.exists(add_icon_path):
-            self.add_btn.setIcon(QIcon(add_icon_path))
-        self.add_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                border: none;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #3a3;
-                border-radius: 3px;
-            }
-        """)
+        if os.path.exists(add_icon_path): self.add_btn.setIcon(QIcon(add_icon_path))
+        self.add_btn.setStyleSheet("QPushButton { background: transparent; border: none; padding: 5px; } QPushButton:hover { background-color: #3a3; border-radius: 3px; }")
         self.add_btn.clicked.connect(self.open_add_app_dialog)
         main_layout.addWidget(self.add_btn, alignment=Qt.AlignCenter)
-
         delete_btn = AnimatedButton(self.admin_panel)
-        delete_btn.setToolTip("Удалить выбранные приложения")
-        delete_btn.setFixedSize(40, 40)
-        delete_btn.setIconSize(QSize(32, 32))
+        delete_btn.setToolTip("Удалить выбранные приложения"); delete_btn.setFixedSize(40, 40); delete_btn.setIconSize(QSize(32, 32))
         delete_icon_path = "images/delete_icon.png"
-        if os.path.exists(delete_icon_path):
-            delete_btn.setIcon(QIcon(delete_icon_path))
-        delete_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                border: none;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #933;
-                border-radius: 3px;
-            }
-        """)
+        if os.path.exists(delete_icon_path): delete_btn.setIcon(QIcon(delete_icon_path))
+        delete_btn.setStyleSheet("QPushButton { background: transparent; border: none; padding: 5px; } QPushButton:hover { background-color: #933; border-radius: 3px; }")
         delete_btn.clicked.connect(self.delete_selected_apps)
         main_layout.addWidget(delete_btn, alignment=Qt.AlignCenter)
-
         main_layout.addStretch()
-
         taskmgr_btn = AnimatedButton(self.admin_panel)
         taskmgr_icon_path = "images/taskmanager_icon.png"
         if os.path.exists(taskmgr_icon_path):
-            taskmgr_btn.setIcon(QIcon(taskmgr_icon_path))
-            taskmgr_btn.setIconSize(QSize(32, 32))
-        taskmgr_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                border: none;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #333;
-                border-radius: 3px;
-            }
-        """)
-        taskmgr_btn.setFixedSize(40, 40)
-        taskmgr_btn.setToolTip("Открыть диспетчер задач")
+            taskmgr_btn.setIcon(QIcon(taskmgr_icon_path)); taskmgr_btn.setIconSize(QSize(32, 32))
+        taskmgr_btn.setStyleSheet("QPushButton { background: transparent; border: none; padding: 5px; } QPushButton:hover { background-color: #333; border-radius: 3px; }")
+        taskmgr_btn.setFixedSize(40, 40); taskmgr_btn.setToolTip("Открыть диспетчер задач")
         taskmgr_btn.clicked.connect(lambda: subprocess.Popen("taskmgr", shell=True))
         main_layout.addWidget(taskmgr_btn, alignment=Qt.AlignCenter)
-
         exit_btn = AnimatedButton(self.admin_panel)
         exit_icon_path = "images/exit_icon.png"
         if os.path.exists(exit_icon_path):
-            exit_btn.setIcon(QIcon(exit_icon_path))
-            exit_btn.setIconSize(QSize(32, 32))
-        exit_btn.setStyleSheet("""
-            QPushButton {
-                background: transparent;
-                border: none;
-                padding: 5px;
-            }
-            QPushButton:hover {
-                background-color: #333;
-                border-radius: 3px;
-            }
-        """)
-        exit_btn.setFixedSize(40, 40)
-        exit_btn.setToolTip("Выйти из режима администратора")
+            exit_btn.setIcon(QIcon(exit_icon_path)); exit_btn.setIconSize(QSize(32, 32))
+        exit_btn.setStyleSheet("QPushButton { background: transparent; border: none; padding: 5px; } QPushButton:hover { background-color: #333; border-radius: 3px; }")
+        exit_btn.setFixedSize(40, 40); exit_btn.setToolTip("Выйти из режима администратора")
         exit_btn.clicked.connect(self.clean_exit)
         main_layout.addWidget(exit_btn, alignment=Qt.AlignCenter)
-
         self.admin_panel.setLayout(main_layout)
-
         def showEvent(event):
             enable_task_manager()
             super(self.admin_panel.__class__, self.admin_panel).showEvent(event)
-        
         def hideEvent(event):
             disable_task_manager()
             super(self.admin_panel.__class__, self.admin_panel).hideEvent(event)
-        
         self.admin_panel.showEvent = showEvent
         self.admin_panel.hideEvent = hideEvent
 
     def clean_exit(self):
+        print("Админ-выход. Остановка таймеров.")
+        if self.core_timer: self.core_timer.stop()
+        if self.heartbeat_loop: self.heartbeat_loop.stop()
+            
         enable_task_manager()
         from utils.win_tools import show_taskbar, start_explorer
         show_taskbar()
@@ -631,20 +494,15 @@ class MainWindow(QWidget):
 
     def update_search_results(self):
         search_text = self.topbar.search_input.text().lower()
-
         if not search_text:
             if self.stack.count() == 3:
                 self.stack.removeWidget(self.stack.widget(2))
             return
-
         combined = self.games + self.tools
         filtered = [item for item in combined if search_text in item['name'].lower()]
-
         search_page = self.create_page(filtered, "Результаты поиска")
-
         if self.stack.count() == 3:
             self.stack.removeWidget(self.stack.widget(2))
-
         self.stack.addWidget(search_page)
         self.stack.setCurrentIndex(2)
 
@@ -656,28 +514,21 @@ class MainWindow(QWidget):
         if not self.selected_apps:
             QMessageBox.information(self, "Удаление", "Ничего не выбрано.")
             return
-            
         app_list = list(self.selected_apps)
         print(f"Запускаем DeleteAppsWorker для {len(app_list)} приложений...")
-        
-        worker = DeleteAppsWorker(app_list)
+        worker = DeleteAppsWorker(app_list, self.admin_user, self.admin_pass)
         worker.finished.connect(self.on_apps_deleted)
         worker.error.connect(self.on_apps_delete_error)
-        
         self.workers.append(worker)
-        worker.finished.connect(lambda: self.workers.remove(worker))
-        worker.error.connect(lambda: self.workers.remove(worker))
-        
+        worker.finished.connect(lambda: self.workers.remove(worker) if worker in self.workers else None)
         worker.start()
 
     def on_apps_deleted(self, deleted_list, failed_list):
         print(f"Удалено: {len(deleted_list)}, Ошибки: {len(failed_list)}")
-        
         if failed_list:
             QMessageBox.warning(self, "Ошибка", f"Не удалось удалить: {', '.join(failed_list)}")
         else:
             QMessageBox.information(self, "Успех", f"Успешно удалено {len(deleted_list)} приложений.")
-            
         self.selected_apps.clear()
         self.reload_apps_from_db()
 
@@ -690,33 +541,23 @@ class MainWindow(QWidget):
         if self.app_load_worker and self.app_load_worker.isRunning():
             print("Worker все еще занят, пропускаем.")
             return 
-            
         self.app_load_worker = LoadAppsWorker()
-        
         self.app_load_worker.finished.connect(self.on_apps_loaded)
         self.app_load_worker.error.connect(self.on_apps_load_error)
-        
         self.app_load_worker.start()
 
     def on_apps_loaded(self, games, apps):
         print("Приложения успешно загружены!")
         current_index = self.stack.currentIndex()
-        
         is_search_active = (current_index == 2)
-        
-        self.games = games
-        self.tools = apps
-        self.filtered_games = self.games.copy()
-        self.filtered_apps = self.tools.copy()
-
+        self.games = games; self.tools = apps
+        self.filtered_games = self.games.copy(); self.filtered_apps = self.tools.copy()
         while self.stack.count() > 0:
             widget = self.stack.widget(0)
             self.stack.removeWidget(widget)
             widget.deleteLater()
-            
         self.stack.addWidget(self.create_page(self.games, "Games"))
         self.stack.addWidget(self.create_page(self.tools, "Applications"))
-        
         if is_search_active:
             self.update_search_results()
             self.stack.setCurrentIndex(2)
@@ -724,7 +565,6 @@ class MainWindow(QWidget):
             self.stack.setCurrentIndex(current_index)
         else:
             self.stack.setCurrentIndex(0)
-            
         self.app_load_worker = None
 
     def on_apps_load_error(self, error_message):
@@ -733,14 +573,89 @@ class MainWindow(QWidget):
         self.app_load_worker = None
     
     def update_custom_tray_apps(self):
-        known_tray_apps = {
-            "steam.exe": ("images/tray/steam_icon.png", lambda: print("Steam clicked")),
-        }
-
+        known_tray_apps = { "steam.exe": ("images/tray/steam_icon.png", lambda: print("Steam clicked")), }
         running = [p.name().lower() for p in psutil.process_iter()]
-        
         self.topbar.clear_custom_tray()
-
         for exe_name, (icon_path, callback) in known_tray_apps.items():
             if exe_name in running:
                 self.topbar.add_tray_icon(icon_path, exe_name.replace(".exe", "").capitalize(), callback)
+
+    # --- УПРАВЛЕНИЕ ГЛАВНЫМИ ТАЙМЕРАМИ ---
+    
+    def start_core_timer(self, initial_time_left):
+        if self.core_timer and self.core_timer.isRunning():
+            self.core_timer.stop()
+            self.core_timer.wait() 
+            
+        if initial_time_left <= 0:
+            print("CoreTimer: Не запускаем, время 0.")
+            self.settings_window.time_left_seconds = 0
+            self.settings_window.time_label.setText("Время вышло")
+            return
+
+        print(f"Запуск CoreTimer с {initial_time_left} секундами.")
+            
+        self.core_timer = CoreTimerWorker(initial_time_left)
+        self.core_timer.tick.connect(self.on_core_tick)
+        self.core_timer.time_up.connect(self.on_core_time_up)
+        
+        self.workers.append(self.core_timer)
+        self.core_timer.finished.connect(lambda: self.workers.remove(self.core_timer) if self.core_timer in self.workers else None)
+        
+        self.core_timer.start()
+
+    def on_core_tick(self, time_left):
+        self.settings_window.time_left_seconds = time_left
+        self.settings_window.time_label.setText(
+            self.settings_window.seconds_to_time_str(time_left)
+        )
+        
+        if time_left == 300: 
+            self.settings_window.show_time_warning("Осталось 5 минут!")
+
+    def on_core_time_up(self):
+        print("CoreTimer: Время вышло!")
+        
+        self.settings_window.time_left_seconds = 0 
+        
+        self.settings_window.time_label.setText("Время вышло")
+        self.settings_window.kill_disallowed_apps()
+        self.settings_window.time_expired.emit()
+    
+    
+    def init_heartbeat_timer(self):
+        self.heartbeat_loop = HeartbeatLoopWorker(15) # 15 секунд
+        self.heartbeat_loop.trigger.connect(self.send_heartbeat)
+        
+        self.workers.append(self.heartbeat_loop)
+        self.heartbeat_loop.finished.connect(lambda: self.workers.remove(self.heartbeat_loop) if self.heartbeat_loop in self.workers else None)
+        
+        self.heartbeat_loop.start()
+        print("Надежный HeartbeatLoopWorker запущен.")
+        
+        QTimer.singleShot(1000, self.send_heartbeat) 
+
+    def send_heartbeat(self):
+        try:
+            time_left = 0
+            if self.core_timer and self.core_timer.isRunning():
+                time_left = self.core_timer.time_left 
+            else:
+                time_left = self.settings_window.time_left_seconds
+
+            if time_left > 0:
+                status = "Используется"
+                user = self.username
+            else:
+                status = "Активен" 
+                user = None
+            
+            worker = HeartbeatWorker(self.pc_name, status, user, time_left)
+            worker.error.connect(lambda e: print(f"Main Heartbeat Error: {e}"))
+
+            self.workers.append(worker)
+            worker.finished.connect(lambda: self.workers.remove(worker) if worker in self.workers else None)
+            
+            worker.start()
+        except Exception as e:
+            print(f"Ошибка запуска HeartbeatWorker (main): {e}")

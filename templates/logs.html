@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Логи Запусков{% endblock %}
+
+{% block head_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/clients.css') }}" />
+<style>
+    /* (Стили для хедера и кнопки "Очистить") */
+    .log-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        /* (Используем стили из clients.css) */
+        background-color: #ececec;
+        border-bottom: 1px solid #eaa21b;
+        padding: 8px 24px;
+    }
+    .btn-danger { 
+        background-color: #f44336; color: white; border: none; 
+        padding: 8px 12px; text-decoration: none; border-radius: 4px;
+        font-weight: bold; cursor: pointer;
+    }
+    .btn-danger:hover {
+        background-color: #d32f2f;
+    }
+
+    /* (НОВЫЕ СТИЛИ) Делаем таблицу похожей на другие */
+    .logs-table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+    }
+    .logs-table th {
+        padding: 12px 15px;
+        background-color: #333; /* Темный заголовок */
+        color: #EAA21B; /* Золотой текст */
+        font-weight: 500;
+        border-bottom: 2px solid #EAA21B;
+    }
+    .logs-table td {
+        padding: 10px 15px;
+        color: #ccc;
+        border-bottom: 1px solid #444; /* Линия между строками */
+    }
+    .logs-table tbody tr:nth-child(even) {
+        background-color: #2a2a2a; /* Чередование строк */
+    }
+    .logs-table tbody tr:hover {
+        background-color: #404040;
+    }
+</style>
+{% endblock %}
+
+
+{% block content %}
+<section class="clients-content">
+    
+    <div class="log-header">
+        <div class="font-medium text-lg">Логи Запусков</div>
+        <a href="{{ url_for('clear_logs') }}" class="btn-danger"
+           onclick="return confirm('Вы уверены, что хотите удалить ВСЕ логи?')">
+           Очистить все логи
+        </a>
+    </div>
+
+    <div class="clients-table-container"> <table class="logs-table">
+            <thead>
+                <tr>
+                    <th>Дата и время</th>
+                    <th>Действие</th>
+                    <th>Устройство</th>
+                    <th>Клиент</th>
+                    <th>Событие (Приложение)</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td>{{ log.timestamp.split('.')[0] }}</td>
+                    <td>Запуск приложения</td> <td>{{ log.computer_name_to_display }}</td>
+                    <td>{{ log.user }}</td>
+                    <td>{{ log.app_name }}</td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="5" style="text-align: center; color: #aaa;">Нет записей в логах.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+</section>
+{% endblock %}

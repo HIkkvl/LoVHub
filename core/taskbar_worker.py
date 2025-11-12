@@ -4,7 +4,7 @@ import win32con
 import win32process
 import os
 from utils.icons import extract_icon_from_exe
-from utils.win_tools import get_exe_path_from_pid  # будем определять отдельно, если понадобится
+from utils.win_tools import get_exe_path_from_pid 
 from PyQt5.QtGui import QIcon
 
 

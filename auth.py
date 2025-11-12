@@ -2,6 +2,9 @@ import sys
 import os
 import subprocess
 import requests
+import json
+import socket
+from werkzeug.security import generate_password_hash, check_password_hash
 from PyQt5.QtWidgets import (QMessageBox, QDialog, QApplication, QWidget, 
                             QPushButton, QVBoxLayout, QHBoxLayout, QLineEdit, 
                             QLabel, QFrame)
@@ -11,8 +14,16 @@ from utils.helpers import AnimatedButton
 from utils.win_tools import (hide_taskbar, kill_explorer, 
                            force_fullscreen_work_area, 
                            disable_task_manager, enable_task_manager)
+from utils.workers import HeartbeatWorker
 
-SERVER_URL = "http://192.168.100.15:5000"
+# --- ВАЖНО: IP СВОЕГО СЕРВЕРА (HTTPS) ---
+SERVER_URL = "https://192.168.1.101:5000" 
+
+
+CACHE_DIR = "cache"
+if not os.path.exists(CACHE_DIR):
+    os.makedirs(CACHE_DIR)
+
 
 class RegisterDialog(QDialog):
     def __init__(self, parent=None):
@@ -117,6 +128,7 @@ class RegisterDialog(QDialog):
         self.setLayout(main_layout)
     
     def try_register(self):
+        # Эта функция теперь просто заглушка
         QMessageBox.warning(self, "Отключено", "Регистрация временно отключена. Обратитесь к администратору.")
         self.reject()
 
@@ -128,6 +140,8 @@ class LoginWindow(QWidget):
         self.setStyleSheet("background:#212121; color: white; font-size: 18px; border: none;")
         self.setWindowFlags(Qt.FramelessWindowHint)
         self.showFullScreen()
+        self.pc_name = socket.gethostname() 
+        self.workers = [] 
         
         hide_taskbar()
         kill_explorer()
@@ -238,6 +252,29 @@ class LoginWindow(QWidget):
         main_layout.addWidget(topbar)
         main_layout.addLayout(auth_wrapper)
 
+        self.init_heartbeat_timer()
+        # -------------------------
+
+    def init_heartbeat_timer(self):
+        """ (Новая функция) Запускает таймер сердцебиения """
+        self.heartbeat_timer = QTimer(self)
+        self.heartbeat_timer.timeout.connect(self.send_heartbeat)
+        self.heartbeat_timer.start(15000) 
+        self.send_heartbeat() 
+
+    def send_heartbeat(self):
+        """ (Новая функция) Отправляет статус 'Активен' без пользователя """
+        try:
+            worker = HeartbeatWorker(self.pc_name, "Активен", None)
+            worker.error.connect(lambda e: print(f"Auth Heartbeat Error: {e}"))
+            
+            self.workers.append(worker)
+            worker.finished.connect(lambda: self.workers.remove(worker))
+            
+            worker.start()
+        except Exception as e:
+            print(f"Ошибка запуска HeartbeatWorker (auth): {e}")
+
     def show_register_dialog(self):
         dialog = RegisterDialog(self)
         dialog.exec_()
@@ -246,46 +283,92 @@ class LoginWindow(QWidget):
         username = self.username_input.text()
         password = self.password_input.text()
         
+        if not username or not password:
+            self.fail_login()
+            return
+            
         payload = {
             "username": username,
             "password": password
         }
         
         try:
-            response = requests.post(f"{SERVER_URL}/api/login", json=payload, timeout=3)
+            response = requests.post(
+                f"{SERVER_URL}/api/login", 
+                json=payload, 
+                timeout=3,
+                verify=False # Для самоподписанного SSL-сертификата
+            )
             
             if response.status_code == 200:
-                data = response.json()
-                if data.get("status") == "success":
-                    self.accepted_login(username)
-                else:
-                    self.fail_login()
-                    
+                print("Успешный ОНЛАЙН вход.")
+                self.cache_credentials(username, password)
+                self.accepted_login(username)
+                
             elif response.status_code == 401:
+                print("Неверный пароль (онлайн).")
                 self.fail_login()
-            
             else:
                 QMessageBox.warning(self, "Ошибка сервера", f"Не удалось войти: {response.text}")
 
         except requests.exceptions.ConnectionError:
-            QMessageBox.critical(self, "Ошибка сети", f"Не удалось подключиться к серверу {SERVER_URL}.\nПроверьте сеть и брандмауэр.")
+            print("Сервер недоступен. Попытка ОФФЛАЙN входа...")
+            if self.login_offline(username, password):
+                print("Успешный ОФФЛАЙН вход.")
+                self.accepted_login(username)
+            else:
+                print("Оффлайн вход не удался.")
+                QMessageBox.critical(self, "Ошибка сети", 
+                    f"Сервер {SERVER_URL} недоступен.\n\n"
+                    "Не удалось войти оффлайн. "
+                    "Проверьте пароль или подключитесь к сети для первого входа.")
+                self.fail_login()
+                
         except Exception as e:
             QMessageBox.critical(self, "Критическая ошибка", str(e))
+            
+    def cache_credentials(self, username, password):
+        """Сохраняет хеш пароля в локальный кэш"""
+        try:
+            user_cache_file = os.path.join(CACHE_DIR, f"{username}.hash")
+            password_hash = generate_password_hash(password)
+            with open(user_cache_file, 'w', encoding='utf-8') as f:
+                f.write(password_hash)
+            print(f"Хеш пароля для {username} сохранен в кэш.")
+        except Exception as e:
+            print(f"Ошибка кэширования хеша: {e}")
+
+    def login_offline(self, username, password):
+        """Проверяет пароль по локальному хешу"""
+        try:
+            user_cache_file = os.path.join(CACHE_DIR, f"{username}.hash")
+            if not os.path.exists(user_cache_file):
+                print("Локальный хеш не найден.")
+                return False
+                
+            with open(user_cache_file, 'r', encoding='utf-8') as f:
+                password_hash = f.read()
+                
+            return check_password_hash(password_hash, password)
+        except Exception as e:
+            print(f"Ошибка оффлайн-логина: {e}")
+            return False
             
     def fail_login(self):
         self.auth_frame.setStyleSheet("background: qlineargradient(x1:0, y1:0, x2:0, y2:1, stop:0 #AA2525, stop:1 #1B1B1B); border-radius: 0px; border:none;")
         QTimer.singleShot(500, self.reset_auth_frame_style)
 
     def accepted_login(self, username):
-        with open("last_login.txt", "w") as f:
+        with open("last_login.txt", "w", encoding='utf-8') as f:
             f.write(username)
 
         self.destroy()
         
+        # --- ЗАПУСКАЕМ СТОРОЖА (watchdog.py) ---
         if sys.platform == "win32":
-            os.system(f"start py main.py {username}")
+            os.system(f"start py watchdog.py {username}")
         else:
-            os.system(f"python main.py {username} &")
+            os.system(f"python watchdog.py {username} &")
  
     def closeEvent(self, event):
         enable_task_manager()

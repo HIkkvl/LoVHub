@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Фейковая Оплата</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; display: grid; place-items: center; min-height: 90vh; background-color: #f4f4f4; }
+        .payment-form {
+            background: white; border: 1px solid #ddd; border-radius: 8px;
+            padding: 30px; text-align: center; box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        }
+        .payment-form h1 { margin-top: 0; color: #333; }
+        .payment-form p { font-size: 1.2em; color: #555; }
+        .amount { font-size: 2.5em; color: #EAA21B; font-weight: bold; margin: 10px 0; }
+        .btn-pay {
+            background-color: #4CAF50; color: white; border: none;
+            padding: 15px 30px; font-size: 1.2em; font-weight: bold;
+            border-radius: 4px; cursor: pointer; transition: background-color 0.2s;
+        }
+        .btn-pay:hover { background-color: #45a049; }
+        .btn-pay:disabled { background-color: #aaa; }
+    </style>
+</head>
+<body>
+    <div class="payment-form">
+        <h1>Подтверждение Оплаты</h1>
+        <p>Пользователь: <strong>{{ user }}</strong></p>
+        <p>К оплате:</p>
+        <div class="amount">{{ amount }} тг</div>
+        <p>Заказ: {{ order_id }}</p>
+        <button id="payButton" class="btn-pay">Оплатить (Имитация)</button>
+    </div>
+
+    <script>
+        document.getElementById('payButton').addEventListener('click', function() {
+            const btn = this;
+            btn.disabled = true;
+            btn.textContent = 'Обработка...';
+
+            // 1. Формируем тело "вебхука"
+            const webhookData = {
+                order_id: "{{ order_id }}",
+                amount: {{ amount }},
+                username: "{{ user }}",
+                status: "success"
+            };
+
+            // 2. Отправляем фейковый вебхук на наш сервер
+            fetch("{{ webhook_url }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(webhookData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    btn.textContent = 'Успешно!';
+                    btn.style.backgroundColor = '#EAA21B';
+                    alert('Оплата прошла успешно! Баланс пополнен.');
+                    // (Можно добавить window.close() здесь, 
+                    // но закрытие окон из скрипта часто блокируется)
+                } else {
+                    alert('Ошибка на сервере (вебхук): ' + data.message);
+                    btn.disabled = false;
+                    btn.textContent = 'Оплатить (Имитация)';
+                }
+            })
+            .catch(err => {
+                console.error('Ошибка fetch:', err);
+                alert('Критическая ошибка. Не удалось отправить вебхук.');
+                btn.disabled = false;
+                btn.textContent = 'Оплатить (Имитация)';
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% block title %}Компьютеры{% endblock %}
+
+{% block head_css %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/computers.css') }}" />
+{% endblock %}
+
+
+{% block content %}
+<section class="computers-content">
+    <div class="computers-header">
+        <div class="computers-tabs">
+            <button class="tab-btn">Все группы</button>
+            <button class="tab-btn active">Общий зал</button>
+            <button class="tab-btn">Vip</button>
+            <button class="tab-btn">Бронирование</button>
+        </div>
+        <div class="add-pc-container">
+            <a href="{{ url_for('apps_page') }}" class="add-pc-btn" style="text-decoration: none;">
+                Упр. Приложениями
+            </a>
+        </div>
+    </div>
+    <div class="computers-table-container">
+        <table class="computers-table">
+            <thead>
+                <tr>
+                    <th>№</th>
+                    <th>Статус</th>
+                    <th>Клиент</th>
+                    <th>Сеанс</th>
+                    <th>Старт</th>
+                    <th>Окончание</th>
+                    <th>Остаток</th>
+                    <th>Версия</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody id="computers-table-body">
+                {% for pc in computers %}
+                <tr id="row-{{ pc.id }}">
+                    <td id="name-{{ pc.id }}">{{ pc.name_to_display }}</td>
+                    <td id="status-{{ pc.id }}" class="{{ pc.status_class }}">{{ pc.status }}</td>
+                    <td id="client-{{ pc.id }}">{{ pc.client }}</td>
+                    <td id="session-{{ pc.id }}">{{ pc.session }}</td>
+                    <td id="start-{{ pc.id }}">{{ pc.start }}</td>
+                    <td id="end-{{ pc.id }}">{{ pc.end }}</td>
+                    <td id="remaining-{{ pc.id }}">{{ pc.remaining }}</td>
+                    <td id="version-{{ pc.id }}">{{ pc.version }}</td>
+                    <td>
+                        <a href="{{ url_for('edit_pc', pc_id=pc.id) }}" 
+                           class="add-pc-btn" 
+                           style="padding: 4px 10px; font-size: 12px; text-decoration: none; background: #606060;">
+                            Переименовать
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/computers.js') }}" defer></script>
+{% endblock %}
